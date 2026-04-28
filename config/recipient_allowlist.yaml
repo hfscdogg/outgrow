@@ -4,6 +4,6 @@
 # Replace the placeholder addresses below with real internal email addresses
 # before unpausing OUTGROW_PAUSED.
 allowed_recipients:
-  - owner@example.com
-  - zack@example.com
-  - outgrow-control@example.com
+  - henry@getlivewire.com
+  - outgrow-control@getlivewire.com
+  - zack@getlivewire.com
