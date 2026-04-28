@@ -1,0 +1,71 @@
+# Outgrow play definitions. Ranking pipeline:
+#   final_score = play.base_weight
+#               * play.seasonal_weights[current_month]
+#               * log10(LTV + legacy_bonus)
+#               * dormancy_factor
+#               * rep_match_confidence
+#               - suppression_penalty
+#
+# Seasonal weights default to 1.0 (neutral) for every month. Tune from real
+# action and reply data once the pilot has 30 days of signal.
+
+plays:
+  - key: daily_proactive
+    label: "Daily Proactive Outreach"
+    enabled: true
+    base_weight: 1.0
+    min_days_since_install: 60
+    max_days_since_install: null
+    seasonal_weights:
+      jan: 1.0
+      feb: 1.0
+      mar: 1.0
+      apr: 1.0
+      may: 1.0
+      jun: 1.0
+      jul: 1.0
+      aug: 1.0
+      sep: 1.0
+      oct: 1.0
+      nov: 1.0
+      dec: 1.0
+
+  - key: reverse_dyk
+    label: "Reverse Did-You-Know"
+    enabled: true
+    base_weight: 0.8
+    min_days_since_install: 90
+    max_days_since_install: null
+    seasonal_weights:
+      jan: 1.0
+      feb: 1.0
+      mar: 1.0
+      apr: 1.0
+      may: 1.0
+      jun: 1.0
+      jul: 1.0
+      aug: 1.0
+      sep: 1.0
+      oct: 1.0
+      nov: 1.0
+      dec: 1.0
+
+  - key: referral
+    label: "Referral Ask"
+    enabled: true
+    base_weight: 0.6
+    min_days_since_install: 60
+    max_days_since_install: 180
+    seasonal_weights:
+      jan: 1.0
+      feb: 1.0
+      mar: 1.0
+      apr: 1.0
+      may: 1.0
+      jun: 1.0
+      jul: 1.0
+      aug: 1.0
+      sep: 1.0
+      oct: 1.0
+      nov: 1.0
+      dec: 1.0
