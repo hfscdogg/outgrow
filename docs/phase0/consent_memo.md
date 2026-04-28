@@ -1,6 +1,6 @@
 # Outgrow daily-pulse — consent + TCPA basis
 
-**Owner of record:** ____________________  **Date:** __________  **Signature:** ____________________
+**Owner of record:** Henry Frazer Sinclair Clifford  **Date:** April 28, 2026  **Signature:** ____________________
 
 ---
 
@@ -56,4 +56,4 @@ first send. The pilot's first send is gated on owner sign-off below.
 I have read the engine's design (see `docs/plan.md`) and authorize the
 30-day pilot to proceed with owner + Zack as the only pilot reps.
 
-**Owner signature:** ____________________  **Date:** __________
+**Owner signature:** ____________________  **Date:** April 28, 2026
