@@ -1,0 +1,35 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.7
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.378
+    hooks:
+      - id: pyright
+
+  - repo: local
+    hooks:
+      - id: forbid-hmac-secret
+        name: refuse to commit hmac_secret.txt
+        entry: bash -c 'for f in "$@"; do case "$(basename "$f")" in hmac_secret.txt) echo "REFUSED: $f contains an HMAC secret and must never be committed." >&2; exit 1 ;; esac; done' --
+        language: system
+        always_run: false
+        pass_filenames: true
+
+      - id: recipient-allowlist
+        name: rep emails must be in recipient_allowlist
+        entry: python scripts/check_recipient_allowlist.py
+        language: system
+        files: ^config/(reps/.*\.yaml|recipient_allowlist\.yaml)$
+        pass_filenames: false
+
+      - id: write-scopes
+        name: forbid non-GET HTTP outside Zoho Activity writes
+        entry: python scripts/check_write_scopes.py
+        language: system
+        files: ^(intake|voice|drafting|src)/.*\.py$
+        pass_filenames: false

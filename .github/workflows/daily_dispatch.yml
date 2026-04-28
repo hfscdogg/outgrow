@@ -1,0 +1,41 @@
+name: daily-dispatch
+
+# Sends one Outgrow pulse per rep at 07:00 ET on weekdays. Cron is commented
+# out until Phase 1 ships. Set the repo variable OUTGROW_PAUSED=true to keep
+# the job from running even when triggered manually.
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "0 11 * * 1-5"  # 07:00 ET (UTC-4 during DST); revisit twice a year for DST drift
+
+jobs:
+  dispatch:
+    if: ${{ vars.OUTGROW_PAUSED != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install project
+        run: |
+          uv venv --python 3.12
+          uv pip install -e ".[dev]"
+
+      - name: Generate + send daily pulses (Phase 1+)
+        env:
+          OUTGROW_HMAC_SECRET: ${{ secrets.OUTGROW_HMAC_SECRET }}
+          ZOHO_CRM_TOKEN: ${{ secrets.ZOHO_CRM_TOKEN }}
+          QBO_TOKEN: ${{ secrets.QBO_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "Phase 0 scaffold: dispatch is a no-op until Phase 1 lands."
+          echo "Set OUTGROW_PAUSED=false in repo variables to enable."

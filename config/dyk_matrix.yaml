@@ -1,0 +1,37 @@
+# Did-You-Know prerequisite matrix.
+#
+# Phase 0: schema + LLM-prompt scaffold only. No live LLM calls happen from
+# this file. Owner fills the 'rules' list during Phase 2 from D-Tools
+# top-30 SKUs; the engine reads it as static data.
+
+schema_version: 1
+
+# Each rule says: if a customer owns `if_owns` and bought it ≥ `min_age_days`
+# ago, the engine may surface `then_dyk` as a Reverse-DYK pulse. The
+# `prereq_signal` field is what the LLM's draft-generation prompt should
+# reference when explaining the "why now" to the rep.
+rules: []
+# Example shape (uncomment + populate during Phase 2):
+#   - if_owns: "Sonos Beam (Gen 2)"
+#       min_age_days: 365
+#       then_dyk: "Sub Mini adds bass without re-running speaker wire"
+#       prereq_signal: "owns Beam, no sub on file"
+
+# Prompt scaffold the drafter loads in Phase 1+. Phase 0 ships only the
+# template — the runtime that calls Anthropic with this template is wired
+# up in src/outgrow/generate/drafter.py during Phase 1.
+llm_prompt_scaffold: |
+  You are drafting a short text message in {rep_first_name}'s voice. The
+  customer is {customer_first_name}, who owns {if_owns} (installed
+  {install_date}). The Did-You-Know is: "{then_dyk}".
+
+  Voice profile (use these patterns; do not invent new ones):
+  {voice_profile_yaml}
+
+  Constraints:
+  - Maximum {max_chars} characters.
+  - Do not invent prices, dates, or product names not present above.
+  - Do not use emoji unless the voice profile lists it as a habit.
+  - End with a low-pressure question or a clear next step.
+
+  Output only the message body, with no preamble or quotes.

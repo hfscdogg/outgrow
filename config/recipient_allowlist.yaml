@@ -1,0 +1,9 @@
+# Pulse emails can only be sent to addresses on this list. CI fails if any
+# address referenced in config/reps/<rep>.yaml is missing here.
+#
+# Replace the placeholder addresses below with real internal email addresses
+# before unpausing OUTGROW_PAUSED.
+allowed_recipients:
+  - owner@example.com
+  - zack@example.com
+  - outgrow-control@example.com
