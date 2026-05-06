@@ -40,6 +40,7 @@ docs/phase0/          # Operator runbook for Phase 0 (credentials, voice samples
 intake/               # Zoho/QBO/D-Tools match audits (Phase 0 dispatch tools)
 voice/                # Voice-profile bootstrap from rep history
 drafting/             # Draft-quality auto-rejector
+sync/                 # Phase 1 nightly pulls (Zoho CRM, QBO sandbox); GET only
 scripts/              # CI guard scripts
 tests/                # 20+ tests, sockets blocked at import time
 ```
