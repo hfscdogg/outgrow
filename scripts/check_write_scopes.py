@@ -31,6 +31,7 @@ SCAN_GLOBS: tuple[str, ...] = (
     "voice/**/*.py",
     "drafting/**/*.py",
     "sync/**/*.py",
+    "pulse/**/*.py",
     "src/**/*.py",
 )
 
