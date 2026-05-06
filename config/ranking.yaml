@@ -1,0 +1,47 @@
+# Ranking-engine knobs that don't fit in `plays.yaml`. The score formula is
+# documented in docs/plan.md and implemented in `ranking/engine.py`:
+#
+#   final_score = play.base_weight
+#               * play.seasonal_weights[current_month]
+#               * log10(LTV_cents + legacy_bonus_cents)
+#               * dormancy_factor(dormancy_days)
+#               * rep_match_confidence
+#               - suppression_penalty
+
+schema_version: 1
+
+# Customers whose first known contact predates the QBO migration get a bonus
+# added to LTV (in cents) before log10. Their QBO-visible spend is a floor,
+# not their true lifetime spend, so this keeps high-value pre-QBO dormants
+# from being out-ranked by modest modern customers. Tune both knobs from
+# real action/reply data once the pilot has 30 days of signal.
+legacy_bonus:
+  qbo_horizon_iso: "2017-01-01"             # update if QBO instance was migrated
+  bonus_cents_per_year_before_horizon: 5000000   # $50k/year of pre-QBO age
+
+# Sweet-spot curve in days since last_purchase_at. Too recent feels intrusive;
+# too old erodes recognition + data quality. Piecewise:
+#   < too_recent_days                        -> 0   (suppress)
+#   too_recent_days .. ramp_up_days          -> linear 0 -> 1.0
+#   ramp_up_days   .. sweet_spot_end_days    -> hold at 1.0
+#   sweet_spot_end .. decay_floor_days       -> linear 1.0 -> cold_floor_factor
+#   >= decay_floor_days                      -> hold at cold_floor_factor
+dormancy:
+  too_recent_days: 30
+  ramp_up_days: 180
+  sweet_spot_end_days: 720
+  decay_floor_days: 1825
+  cold_floor_factor: 0.5
+
+# rep_match_confidence acts as a multiplier (0.0-1.0) on the final score.
+# Below `min_confidence` the customer is filtered out entirely (the
+# three-way Zoho/QBO/D-Tools disagreement case in docs/plan.md). Medium-
+# confidence customers still surface; the pulse exposes a "Not my customer
+# - reassign" link for the rep to one-tap.
+rep_match:
+  min_confidence: 0.5
+
+# Reserved for future soft-suppression (recently-sent etc.). Hard suppressions
+# (open_ticket, active_deal, opted_out) filter the customer out upstream and
+# never reach the score formula.
+suppression_penalty: 0.0
