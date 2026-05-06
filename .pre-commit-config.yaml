@@ -31,5 +31,5 @@ repos:
         name: forbid non-GET HTTP outside Zoho Activity writes
         entry: python scripts/check_write_scopes.py
         language: system
-        files: ^(intake|voice|drafting|src)/.*\.py$
+        files: ^(intake|voice|drafting|sync|src)/.*\.py$
         pass_filenames: false
