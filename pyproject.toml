@@ -28,7 +28,7 @@ py-modules = []
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["intake*", "voice*", "drafting*", "sync*", "ranking*", "pulse*", "matching*"]
+include = ["intake*", "voice*", "drafting*", "sync*", "ranking*", "pulse*", "matching*", "pipeline*"]
 exclude = ["tests*", "scripts*", "docs*", "config*"]
 
 [tool.ruff]
@@ -46,7 +46,7 @@ ignore = ["PLR0913"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
 reportMissingImports = "error"
-include = ["intake", "voice", "drafting", "sync", "ranking", "pulse", "matching", "scripts", "tests"]
+include = ["intake", "voice", "drafting", "sync", "ranking", "pulse", "matching", "pipeline", "scripts", "tests"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
