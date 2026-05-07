@@ -1,0 +1,23 @@
+# Owner profile. Henry pilots alongside Zack for the 30-day window
+# (docs/plan.md). Per the plan, the owner does NOT get self-CC on their
+# own pulse — the drift journal handles owner-on-owner review instead.
+
+rep_id: henry
+email: henry@getlivewire.com
+first_name: Henry
+
+# TODO(owner): replace with the real Zoho User ID. Find it in Zoho CRM
+# > Settings > Users (the long numeric ID in the user-profile URL).
+# Until this is correct, no customers owned by Henry will surface to
+# his pulse — the loader silently skips them and the workflow log
+# shows `NO_ELIGIBLE_CUSTOMER` for henry.
+zoho_user_id: REPLACE_ME_HENRY_ZOHO_USER_ID
+
+# Owner is the reviewer, not the reviewee — no self-CC.
+cc_review_remaining: 0
+
+# TODO(owner): run `python -m voice.wizard --rep henry \
+#   --history .cache/voice/henry.csv` to populate distilled voice
+# features (formality, typical_greetings, typical_signoffs,
+# emoji_per_message, distinctive_vocab). Until then the drafter
+# generates without rep-voice anchoring.
