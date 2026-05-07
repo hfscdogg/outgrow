@@ -1,0 +1,24 @@
+# Zack pilots alongside Henry for the 30-day window (docs/plan.md).
+# The owner is CC'd on Zack's first 5 pulses for voice-quality review;
+# cc_review_remaining decrements after each send (manually today,
+# automated when Phase 2's per-rep state-store ships).
+
+rep_id: zack
+email: zack@getlivewire.com
+first_name: Zack
+
+# TODO(owner): replace with the real Zoho User ID. Find it in Zoho CRM
+# > Settings > Users (the long numeric ID in the user-profile URL).
+# Until this is correct, no customers owned by Zack will surface to
+# his pulse — the loader silently skips them and the workflow log
+# shows `NO_ELIGIBLE_CUSTOMER` for zack.
+zoho_user_id: REPLACE_ME_ZACK_ZOHO_USER_ID
+
+# Owner CC'd on the first 5 sends per docs/plan.md Phase 1 review window.
+cc_review_remaining: 5
+
+# TODO(owner): run `python -m voice.wizard --rep zack \
+#   --history .cache/voice/zack.csv` to populate distilled voice
+# features. The wizard reads the rep's last ~200 outbound texts from
+# the cache CSV and writes the distilled tone patterns here. Raw texts
+# stay in `.cache/voice/zack.csv` (gitignored) and never enter git.
