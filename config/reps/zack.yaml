@@ -7,12 +7,8 @@ rep_id: zack
 email: zack@getlivewire.com
 first_name: Zack
 
-# TODO(owner): replace with the real Zoho User ID. Find it in Zoho CRM
-# > Settings > Users (the long numeric ID in the user-profile URL).
-# Until this is correct, no customers owned by Zack will surface to
-# his pulse — the loader silently skips them and the workflow log
-# shows `NO_ELIGIBLE_CUSTOMER` for zack.
-zoho_user_id: REPLACE_ME_ZACK_ZOHO_USER_ID
+# Zack Reichert. Zoho user ID from Zoho CRM > Settings > Users.
+zoho_user_id: "176704000151417023"
 
 # Owner CC'd on the first 5 sends per docs/plan.md Phase 1 review window.
 cc_review_remaining: 5
