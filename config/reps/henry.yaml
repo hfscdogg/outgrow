@@ -12,8 +12,28 @@ zoho_user_id: "176704000000033001"
 # Owner is the reviewer, not the reviewee — no self-CC.
 cc_review_remaining: 0
 
-# TODO(owner): run `python -m voice.wizard --rep henry \
-#   --history .cache/voice/henry.csv` to populate distilled voice
-# features (formality, typical_greetings, typical_signoffs,
-# emoji_per_message, distinctive_vocab). Until then the drafter
-# generates without rep-voice anchoring.
+# Voice profile, hand-distilled from 15 scenario-based sample texts
+# Henry authored via the chat-interview prompt (not a real RingCentral
+# export — pivoted to scenario-prompt because admin export wasn't on the
+# table). Recompute with `voice/wizard.py` once a real ~200-text export
+# becomes available; the schema below is identical to the wizard's
+# output so a future run replaces these values cleanly.
+formality: casual
+avg_sentence_length: 6.5
+typical_greetings:
+  - hey
+typical_signoffs:
+  - let me know
+  - check it out
+emoji_per_message: 0.0
+distinctive_vocab:
+  - referral
+  - warranty
+  - demo
+  - design
+  - killer
+  - thought
+  - livewire
+  - system
+  - happy
+  - miss
