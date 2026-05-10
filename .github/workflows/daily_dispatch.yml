@@ -54,4 +54,7 @@ jobs:
           OUTGROW_HMAC_SECRET: ${{ secrets.OUTGROW_HMAC_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OUTGROW_PAUSED: ${{ vars.OUTGROW_PAUSED }}
+          OUTGROW_OWNER_EMAIL: ${{ vars.OUTGROW_OWNER_EMAIL }}
+          OUTGROW_CONTROL_ADDRESS: ${{ vars.OUTGROW_CONTROL_ADDRESS }}
+          OUTGROW_SENDER_EMAIL: ${{ vars.OUTGROW_SENDER_EMAIL }}
         run: uv run python -m scripts.daily_pulse --dry-run

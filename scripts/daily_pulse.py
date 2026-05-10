@@ -435,6 +435,36 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
         dry_run=args.dry_run,
     )
 
+    _print_dry_run_report(results)
+    return 0
+
+
+def _print_dry_run_report(results: list[PulseRunResult]) -> None:  # pragma: no cover
+    """Human-readable per-rep summary for the workflow log.
+
+    Includes the actual draft text + judge result so the owner can read
+    each would-be pulse end-to-end without digging through structured
+    JSON. Compact JSON dump still happens at the bottom for grep-ability.
+    """
+    for r in results:
+        print(f"\n=== {r.rep_id} ===")
+        print(f"status: {r.status}")
+        if r.customer_id:
+            print(f"customer_id: {r.customer_id}")
+        if r.pulse_id:
+            print(f"pulse_id: {r.pulse_id}")
+        if r.model_used:
+            print(f"model_used: {r.model_used}")
+        if r.generation:
+            print("draft_text:")
+            for line in (r.generation.draft_text or "").splitlines() or [""]:
+                print(f"  {line}")
+        if r.judge:
+            verdict = "passed" if r.judge.passed else "FAILED"
+            print(f"judge: {verdict}")
+            for v in r.judge.violations:
+                print(f"  - {v.reason}: {v.detail}")
+    print("\n--- summary ---")
     print(
         json.dumps(
             [
@@ -450,7 +480,6 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
             indent=2,
         )
     )
-    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover
