@@ -140,21 +140,34 @@ def paginate(
     per_page: int = PER_PAGE,
     max_pages: int = MAX_PAGES,
 ) -> list[dict[str, Any]]:
-    """Walk Zoho's ``info.more_records`` pagination until exhausted.
+    """Walk Zoho's cursor pagination via ``info.next_page_token``.
+
+    Switched from offset pagination (``page=N``) to token pagination
+    because Zoho caps offset pagination at 2000 records with HTTP 400
+    ``DISCRETE_PAGINATION_LIMIT_EXCEEDED`` (10 pages × 200 per_page).
+    Cursor pagination is unlimited; the first request omits any
+    pagination param, then each ``info.next_page_token`` from the
+    response feeds into the next request as ``page_token``.
 
     Raises ``RuntimeError`` if pagination doesn't terminate within
-    ``max_pages`` — defends against an accidental infinite loop on a
-    malformed API response.
+    ``max_pages`` — defends against an accidental infinite loop.
     """
     rows: list[dict[str, Any]] = []
-    for page in range(1, max_pages + 1):
-        payload = fetch(
-            module_path,
-            {"fields": fields, "per_page": per_page, "page": page},
-        )
+    page_token: str | None = None
+    for _ in range(max_pages):
+        params: dict[str, Any] = {"fields": fields, "per_page": per_page}
+        if page_token:
+            params["page_token"] = page_token
+        payload = fetch(module_path, params)
         rows.extend(payload.get("data") or [])
         info = payload.get("info") or {}
         if not info.get("more_records"):
+            return rows
+        page_token = info.get("next_page_token")
+        if not page_token:
+            # Zoho says more_records=true but didn't give us a token —
+            # malformed response. Stop with what we have rather than
+            # spinning forever asking for the same first page.
             return rows
     raise RuntimeError(f"Zoho {module_path} pagination exceeded {max_pages} pages; aborting.")
 
