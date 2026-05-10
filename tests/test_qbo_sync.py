@@ -6,13 +6,16 @@ fake ``QueryFetcher``. Live API contact would raise ``NetworkBlockedError``.
 
 from __future__ import annotations
 
+import io
 import json
+import urllib.error
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from sync import qbo
 from sync.qbo import (
     MAX_RESULTS,
     QboCreds,
@@ -185,3 +188,40 @@ def test_qbo_creds_from_env_treats_empty_string_as_missing() -> None:
     }
     with pytest.raises(RuntimeError, match="QBO_SANDBOX_REFRESH_TOKEN"):
         QboCreds.from_env(env)
+
+
+def test_refresh_access_token_surfaces_oauth_400_body(monkeypatch) -> None:
+    def fake_urlopen(req, timeout):  # noqa: ARG001
+        raise urllib.error.HTTPError(
+            url=req.full_url,
+            code=400,
+            msg="Bad Request",
+            hdrs=None,  # type: ignore[arg-type]
+            fp=io.BytesIO(b'{"error":"invalid_grant"}'),
+        )
+
+    monkeypatch.setattr(qbo.urllib.request, "urlopen", fake_urlopen)
+    creds = qbo.QboCreds(
+        client_id="cid",
+        client_secret="csec",
+        refresh_token="rt",
+        realm_id="r1",
+    )
+    with pytest.raises(RuntimeError, match=r"HTTP 400.*invalid_grant"):
+        qbo.refresh_access_token(creds)
+
+
+def test_make_qbo_query_surfaces_api_error_body(monkeypatch) -> None:
+    def fake_urlopen(req, timeout):  # noqa: ARG001
+        raise urllib.error.HTTPError(
+            url=req.full_url,
+            code=401,
+            msg="Unauthorized",
+            hdrs=None,  # type: ignore[arg-type]
+            fp=io.BytesIO(b'{"Fault":{"Error":[{"code":"3200","Message":"Token expired"}]}}'),
+        )
+
+    monkeypatch.setattr(qbo.urllib.request, "urlopen", fake_urlopen)
+    fetch = qbo.make_qbo_query(access_token="bogus", base_url=qbo.SANDBOX_BASE, realm_id="r1")
+    with pytest.raises(RuntimeError, match=r"HTTP 401.*Token expired"):
+        fetch("SELECT * FROM Customer")
