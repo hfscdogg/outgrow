@@ -13,6 +13,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import nacl.encoding
+import nacl.public
 import pytest
 
 from sync import qbo
@@ -225,3 +227,150 @@ def test_make_qbo_query_surfaces_api_error_body(monkeypatch) -> None:
     fetch = qbo.make_qbo_query(access_token="bogus", base_url=qbo.SANDBOX_BASE, realm_id="r1")
     with pytest.raises(RuntimeError, match=r"HTTP 401.*Token expired"):
         fetch("SELECT * FROM Customer")
+
+
+# ---- refresh_access_token returns (access, refresh) tuple --------------------
+
+
+class _FakeResp:
+    def __init__(self, payload: dict[str, Any], status: int = 200) -> None:
+        self._payload = json.dumps(payload).encode()
+        self.status = status
+
+    def read(self) -> bytes:
+        return self._payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args) -> None:
+        return None
+
+
+def test_refresh_access_token_returns_rotated_refresh_token(monkeypatch) -> None:
+    """Intuit returns a new refresh_token on every refresh; we have to
+    capture it so the persistence layer can write it back."""
+
+    def fake_urlopen(req, timeout):  # noqa: ARG001
+        return _FakeResp({"access_token": "AT-new", "refresh_token": "RT-new"})
+
+    monkeypatch.setattr(qbo.urllib.request, "urlopen", fake_urlopen)
+    creds = qbo.QboCreds(
+        client_id="cid", client_secret="csec", refresh_token="RT-old", realm_id="r1"
+    )
+    access, refresh = qbo.refresh_access_token(creds)
+    assert access == "AT-new"
+    assert refresh == "RT-new"
+
+
+def test_refresh_access_token_falls_back_to_old_when_response_omits_refresh(monkeypatch) -> None:
+    """If Intuit doesn't rotate (rare but possible), keep the old token so
+    persistence is a no-op rather than nulling out the secret."""
+
+    def fake_urlopen(req, timeout):  # noqa: ARG001
+        return _FakeResp({"access_token": "AT-new"})  # no refresh_token
+
+    monkeypatch.setattr(qbo.urllib.request, "urlopen", fake_urlopen)
+    creds = qbo.QboCreds(
+        client_id="cid", client_secret="csec", refresh_token="RT-old", realm_id="r1"
+    )
+    _, refresh = qbo.refresh_access_token(creds)
+    assert refresh == "RT-old"
+
+
+# ---- maybe_persist_refresh_token --------------------------------------------
+
+
+def test_persist_skips_when_token_unchanged(monkeypatch) -> None:
+    calls: list[Any] = []
+    monkeypatch.setattr(qbo, "update_github_actions_secret", lambda **kw: calls.append(kw))
+    persisted = qbo.maybe_persist_refresh_token(
+        new_token="same", old_token="same", repo="o/r", pat="ghp_xxx"
+    )
+    assert persisted is False
+    assert calls == []
+
+
+def test_persist_skips_when_pat_missing() -> None:
+    persisted = qbo.maybe_persist_refresh_token(
+        new_token="new", old_token="old", repo="o/r", pat=None
+    )
+    assert persisted is False
+
+
+def test_persist_skips_when_repo_missing() -> None:
+    persisted = qbo.maybe_persist_refresh_token(
+        new_token="new", old_token="old", repo=None, pat="ghp_xxx"
+    )
+    assert persisted is False
+
+
+def test_persist_calls_github_api_when_token_rotated(monkeypatch) -> None:
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(qbo, "update_github_actions_secret", lambda **kw: calls.append(kw))
+    persisted = qbo.maybe_persist_refresh_token(
+        new_token="RT-new",
+        old_token="RT-old",
+        secret_name="QBO_SANDBOX_REFRESH_TOKEN",
+        repo="hfscdogg/outgrow",
+        pat="ghp_xxx",
+    )
+    assert persisted is True
+    assert len(calls) == 1
+    assert calls[0]["repo"] == "hfscdogg/outgrow"
+    assert calls[0]["name"] == "QBO_SANDBOX_REFRESH_TOKEN"
+    assert calls[0]["value"] == "RT-new"
+    assert calls[0]["pat"] == "ghp_xxx"
+
+
+def test_persist_swallows_api_failure(monkeypatch, caplog) -> None:
+    """API failure must not crash the sync — the access token already
+    worked, so the current run should still complete. Next run will
+    surface staleness via 400 invalid_grant on its own refresh."""
+
+    def boom(**_kw):
+        raise RuntimeError("github 503")
+
+    monkeypatch.setattr(qbo, "update_github_actions_secret", boom)
+    with caplog.at_level("ERROR"):
+        persisted = qbo.maybe_persist_refresh_token(
+            new_token="RT-new", old_token="RT-old", repo="o/r", pat="ghp_xxx"
+        )
+    assert persisted is False
+    assert any("Failed to persist" in rec.message for rec in caplog.records)
+
+
+# ---- update_github_actions_secret --------------------------------------------
+
+
+def test_update_github_secret_does_get_then_put(monkeypatch) -> None:
+    """Two-step contract: GET public-key, then PUT encrypted_value+key_id."""
+    real_pubkey_b64 = (
+        nacl.public.PrivateKey.generate().public_key.encode(nacl.encoding.Base64Encoder).decode()
+    )
+
+    seen: list[tuple[str, str]] = []
+
+    def fake_urlopen(req, timeout):  # noqa: ARG001
+        seen.append((req.method or "", req.full_url or ""))
+        if req.method == "GET":
+            return _FakeResp({"key": real_pubkey_b64, "key_id": "kid-123"})
+        body = json.loads(req.data)
+        assert "encrypted_value" in body
+        assert body["key_id"] == "kid-123"
+        # value must not be the plaintext after libsodium encryption
+        assert "RT-new" not in body["encrypted_value"]
+        return _FakeResp({}, status=204)
+
+    monkeypatch.setattr(qbo.urllib.request, "urlopen", fake_urlopen)
+    qbo.update_github_actions_secret(
+        repo="o/r",
+        name="QBO_SANDBOX_REFRESH_TOKEN",
+        value="RT-new",
+        pat="ghp_xxx",
+    )
+    assert len(seen) == 2
+    assert seen[0][0] == "GET"
+    assert "actions/secrets/public-key" in seen[0][1]
+    assert seen[1][0] == "PUT"
+    assert "actions/secrets/QBO_SANDBOX_REFRESH_TOKEN" in seen[1][1]

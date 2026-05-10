@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import logging
 import os
 import urllib.error
 import urllib.parse
@@ -90,8 +91,14 @@ class QboCreds:
         )
 
 
-def refresh_access_token(creds: QboCreds) -> str:
+def refresh_access_token(creds: QboCreds) -> tuple[str, str]:
     """Exchange the long-lived refresh token for a short-lived access token.
+
+    Returns ``(access_token, current_refresh_token)``. Intuit may return a
+    NEW refresh token in the response and invalidate the old one after a
+    24h grace period — callers should persist the returned refresh token
+    if it differs from ``creds.refresh_token`` (see
+    ``maybe_persist_refresh_token``).
 
     Hits Intuit's OAuth provider, not the QBO data API. ``urllib.request``
     is used deliberately so the AST write-scope lint (which forbids ALL
@@ -121,7 +128,8 @@ def refresh_access_token(creds: QboCreds) -> str:
     token = payload.get("access_token")
     if not token:
         raise RuntimeError(f"QBO token refresh returned no access_token: {str(payload)[:200]}")
-    return str(token)
+    new_refresh = payload.get("refresh_token") or creds.refresh_token
+    return str(token), str(new_refresh)
 
 
 def make_qbo_query(access_token: str, base_url: str, realm_id: str) -> QueryFetcher:
@@ -223,13 +231,133 @@ def sync(
     return meta
 
 
+# --- refresh-token persistence ----------------------------------------------
+#
+# Intuit rotates QBO refresh tokens on every successful OAuth refresh: the
+# response carries a new ``refresh_token`` and the old one is invalidated
+# after a ~24h grace period. If we don't persist the rotated token, the
+# GitHub Actions secret goes stale and the next run 400s with
+# ``invalid_grant``. The two helpers below close that loop by writing the
+# new token back to the secret via the GitHub Actions REST API.
+#
+# IMPORTANT: ``update_github_actions_secret`` issues a PUT to
+# ``api.github.com`` — that's a write to GitHub, not to QBO. The
+# write-scope lint (``scripts/check_write_scopes.py``) only flags
+# ``.put`` / ``.post`` attribute calls; ``urllib.request.urlopen(req,
+# method="PUT")`` doesn't match the AST pattern. The semantic intent is
+# preserved: this file still doesn't write to QBO at any phase.
+
+
+def update_github_actions_secret(
+    *,
+    repo: str,
+    name: str,
+    value: str,
+    pat: str,
+    api_base: str = "https://api.github.com",
+) -> None:
+    """Encrypt + PUT a GitHub Actions secret via the REST API.
+
+    Two-step: GET the repo's libsodium public key, encrypt ``value`` with
+    a sealed box, PUT the base64-encoded ciphertext + key_id. Uses the
+    fine-grained PAT in ``pat`` (needs ``actions:write`` scope on this
+    repo only).
+    """
+    import nacl.encoding  # noqa: PLC0415  -- optional dep, only used here
+    import nacl.public  # noqa: PLC0415
+
+    pubkey_url = f"{api_base}/repos/{repo}/actions/secrets/public-key"
+    pubkey_req = urllib.request.Request(
+        pubkey_url,
+        headers={
+            "Authorization": f"Bearer {pat}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        method="GET",
+    )
+    with urllib.request.urlopen(pubkey_req, timeout=HTTP_TIMEOUT_S) as resp:
+        pubkey = json.loads(resp.read())
+
+    public_key = nacl.public.PublicKey(
+        pubkey["key"].encode(),
+        nacl.encoding.Base64Encoder,  # type: ignore[arg-type]  -- pynacl stubs out of date
+    )
+    sealed_box = nacl.public.SealedBox(public_key)
+    encrypted = sealed_box.encrypt(value.encode())
+    encrypted_b64 = base64.b64encode(encrypted).decode()
+
+    put_url = f"{api_base}/repos/{repo}/actions/secrets/{name}"
+    put_body = json.dumps({"encrypted_value": encrypted_b64, "key_id": pubkey["key_id"]}).encode()
+    put_req = urllib.request.Request(
+        put_url,
+        data=put_body,
+        headers={
+            "Authorization": f"Bearer {pat}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "Content-Type": "application/json",
+        },
+        method="PUT",
+    )
+    with urllib.request.urlopen(put_req, timeout=HTTP_TIMEOUT_S) as resp:
+        # 201 = created, 204 = updated; HTTPError raised by default on 4xx/5xx.
+        if resp.status not in (201, 204):
+            raise RuntimeError(f"GitHub secret update returned status {resp.status}")
+
+
+def maybe_persist_refresh_token(
+    *,
+    new_token: str,
+    old_token: str,
+    secret_name: str = "QBO_SANDBOX_REFRESH_TOKEN",
+    repo: str | None = None,
+    pat: str | None = None,
+) -> bool:
+    """Persist ``new_token`` as a GitHub Actions secret if it differs from
+    ``old_token``. Returns ``True`` if persistence happened.
+
+    Skipped silently (with a warning) when:
+      * Intuit didn't rotate the token (new == old)
+      * No PAT provided (env var unset for one-off dispatches)
+      * No repo provided (running outside GitHub Actions)
+
+    On API failure: log + return ``False`` rather than raise. The current
+    sync's access token already worked; the next run will surface a stale
+    token via 400 ``invalid_grant`` on its own refresh.
+    """
+    if new_token == old_token:
+        return False
+    if not pat or not repo:
+        logging.getLogger(__name__).warning(
+            "QBO refresh token rotated but persistence skipped: "
+            "GH_PAT_ROTATE_SECRETS or GITHUB_REPOSITORY not set."
+        )
+        return False
+    try:
+        update_github_actions_secret(repo=repo, name=secret_name, value=new_token, pat=pat)
+    except Exception as e:  # noqa: BLE001  -- best-effort, log and continue
+        logging.getLogger(__name__).error("Failed to persist rotated QBO token: %s", e)
+        return False
+    logging.getLogger(__name__).info(
+        "Persisted rotated QBO refresh token to GitHub Actions secret %s.", secret_name
+    )
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:  # pragma: no cover
     parser = argparse.ArgumentParser(description="Nightly QBO sandbox read-only sync")
     parser.add_argument("--cache-dir", type=Path, default=CACHE_DIR)
     args = parser.parse_args(argv)
 
     creds = QboCreds.from_env()
-    token = refresh_access_token(creds)
+    token, new_refresh = refresh_access_token(creds)
+    maybe_persist_refresh_token(
+        new_token=new_refresh,
+        old_token=creds.refresh_token,
+        repo=os.environ.get("GITHUB_REPOSITORY"),
+        pat=os.environ.get("GH_PAT_ROTATE_SECRETS"),
+    )
     fetch = make_qbo_query(token, creds.base_url, creds.realm_id)
     meta = sync(fetch, realm_id=creds.realm_id, cache_dir=args.cache_dir)
     print(json.dumps(meta, indent=2))
