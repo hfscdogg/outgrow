@@ -6,12 +6,15 @@ fake ``PageFetcher``. Live API contact would raise ``NetworkBlockedError``.
 
 from __future__ import annotations
 
+import io
 import json
+import urllib.error
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from sync import zoho_crm
 from sync.zoho_crm import (
     CONTACT_FIELDS,
     DEAL_FIELDS,
@@ -193,6 +196,45 @@ def test_zoho_creds_from_env_treats_empty_string_as_missing() -> None:
     }
     with pytest.raises(RuntimeError, match="ZOHO_CRM_CLIENT_ID"):
         ZohoCreds.from_env(env)
+
+
+def test_refresh_access_token_surfaces_oauth_400_body(monkeypatch) -> None:
+    """When Zoho returns 400 (invalid_code etc.), the body has to land in
+    the RuntimeError message — otherwise debugging is `urllib.error.HTTPError`
+    with no context."""
+
+    def fake_urlopen(req, timeout):  # noqa: ARG001
+        raise urllib.error.HTTPError(
+            url=req.full_url,
+            code=400,
+            msg="Bad Request",
+            hdrs=None,  # type: ignore[arg-type]
+            fp=io.BytesIO(b'{"error":"invalid_code"}'),
+        )
+
+    monkeypatch.setattr(zoho_crm.urllib.request, "urlopen", fake_urlopen)
+    creds = zoho_crm.ZohoCreds(refresh_token="rt", client_id="cid", client_secret="csec", dc="com")
+    with pytest.raises(RuntimeError, match=r"HTTP 400.*invalid_code"):
+        zoho_crm.refresh_access_token(creds)
+
+
+def test_make_zoho_get_surfaces_api_error_body(monkeypatch) -> None:
+    """Same defensive treatment for CRM data calls so a 401 unauthorised /
+    403 scope-mismatch surfaces the response body."""
+
+    def fake_urlopen(req, timeout):  # noqa: ARG001
+        raise urllib.error.HTTPError(
+            url=req.full_url,
+            code=401,
+            msg="Unauthorized",
+            hdrs=None,  # type: ignore[arg-type]
+            fp=io.BytesIO(b'{"code":"INVALID_TOKEN","status":"error"}'),
+        )
+
+    monkeypatch.setattr(zoho_crm.urllib.request, "urlopen", fake_urlopen)
+    fetch = zoho_crm.make_zoho_get(access_token="bogus", dc="com")
+    with pytest.raises(RuntimeError, match=r"HTTP 401.*INVALID_TOKEN"):
+        fetch("/crm/v3/Contacts", {"per_page": 1})
 
 
 def test_zoho_creds_from_env_treats_empty_dc_as_default() -> None:

@@ -36,6 +36,7 @@ import argparse
 import base64
 import json
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterable
@@ -111,11 +112,15 @@ def refresh_access_token(creds: QboCreds) -> str:
             "Accept": "application/json",
         },
     )
-    with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
-        payload = json.loads(resp.read())
+    try:
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
+            payload = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="replace")[:500]
+        raise RuntimeError(f"QBO OAuth token refresh failed: HTTP {e.code} {err_body}") from e
     token = payload.get("access_token")
     if not token:
-        raise RuntimeError(f"QBO token refresh failed: {str(payload)[:200]}")
+        raise RuntimeError(f"QBO token refresh returned no access_token: {str(payload)[:200]}")
     return str(token)
 
 
@@ -131,10 +136,16 @@ def make_qbo_query(access_token: str, base_url: str, realm_id: str) -> QueryFetc
         params = urllib.parse.urlencode({"query": query, "minorversion": QBO_MINOR_VERSION})
         url = f"{base}?{params}"
         req = urllib.request.Request(url, headers=headers, method="GET")
-        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
-            if resp.status == HTTP_NO_CONTENT:
-                return {"QueryResponse": {}}
-            return json.loads(resp.read())
+        try:
+            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
+                if resp.status == HTTP_NO_CONTENT:
+                    return {"QueryResponse": {}}
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8", errors="replace")[:500]
+            raise RuntimeError(
+                f"QBO query failed (HTTP {e.code}): {err_body[:200]} | query={query[:100]}"
+            ) from e
 
     return fetch
 

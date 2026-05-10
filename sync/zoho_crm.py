@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterable
@@ -97,11 +98,15 @@ def refresh_access_token(creds: ZohoCreds) -> str:
         }
     ).encode()
     req = urllib.request.Request(url, data=body, method="POST")
-    with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
-        payload = json.loads(resp.read())
+    try:
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
+            payload = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="replace")[:500]
+        raise RuntimeError(f"Zoho OAuth token refresh failed: HTTP {e.code} {err_body}") from e
     token = payload.get("access_token")
     if not token:
-        raise RuntimeError(f"Zoho token refresh failed: {str(payload)[:200]}")
+        raise RuntimeError(f"Zoho token refresh returned no access_token: {str(payload)[:200]}")
     return str(token)
 
 
@@ -113,10 +118,16 @@ def make_zoho_get(access_token: str, dc: str) -> PageFetcher:
     def fetch(module_path: str, params: dict[str, Any]) -> dict[str, Any]:
         url = f"{base}{module_path}?{urllib.parse.urlencode(params)}"
         req = urllib.request.Request(url, headers=headers, method="GET")
-        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
-            if resp.status == HTTP_NO_CONTENT:
-                return {"data": [], "info": {"more_records": False}}
-            return json.loads(resp.read())
+        try:
+            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
+                if resp.status == HTTP_NO_CONTENT:
+                    return {"data": [], "info": {"more_records": False}}
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8", errors="replace")[:500]
+            raise RuntimeError(
+                f"Zoho CRM GET {module_path} failed: HTTP {e.code} {err_body}"
+            ) from e
 
     return fetch
 
