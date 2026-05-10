@@ -44,7 +44,10 @@ def _stub_fetch(pages_by_path: dict[str, list[dict[str, Any]]]):
 
 def test_paginate_walks_until_more_records_false() -> None:
     pages = [
-        {"data": [{"id": "1"}, {"id": "2"}], "info": {"more_records": True}},
+        {
+            "data": [{"id": "1"}, {"id": "2"}],
+            "info": {"more_records": True, "next_page_token": "tok1"},
+        },
         {"data": [{"id": "3"}], "info": {"more_records": False}},
     ]
     fetch = _stub_fetch({"/crm/v3/Contacts": pages})
@@ -74,13 +77,16 @@ def test_paginate_handles_missing_info_key() -> None:
 
 
 def test_paginate_aborts_when_more_records_never_flips() -> None:
-    pages = [{"data": [{"id": str(i)}], "info": {"more_records": True}} for i in range(5)]
+    pages = [
+        {"data": [{"id": str(i)}], "info": {"more_records": True, "next_page_token": f"tok{i}"}}
+        for i in range(5)
+    ]
     fetch = _stub_fetch({"/crm/v3/Contacts": pages})
     with pytest.raises(RuntimeError, match="exceeded 3 pages"):
         paginate(fetch, "/crm/v3/Contacts", CONTACT_FIELDS, max_pages=3)
 
 
-def test_paginate_passes_per_page_and_page_params() -> None:
+def test_paginate_first_request_omits_page_token() -> None:
     seen: list[dict[str, Any]] = []
 
     def fetch(module_path: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -88,7 +94,46 @@ def test_paginate_passes_per_page_and_page_params() -> None:
         return {"data": [], "info": {"more_records": False}}
 
     paginate(fetch, "/crm/v3/Contacts", CONTACT_FIELDS, per_page=50)
-    assert seen == [{"fields": CONTACT_FIELDS, "per_page": 50, "page": 1}]
+    assert seen == [{"fields": CONTACT_FIELDS, "per_page": 50}]
+    assert "page_token" not in seen[0]
+    assert "page" not in seen[0]  # offset pagination caps at 2000 — must use token
+
+
+def test_paginate_threads_next_page_token_through_subsequent_requests() -> None:
+    """Regression for HTTP 400 DISCRETE_PAGINATION_LIMIT_EXCEEDED. Zoho caps
+    offset pagination (`page=N`) at 2000 records. We use cursor pagination via
+    `next_page_token` -> `page_token` instead, which is unlimited."""
+    seen: list[dict[str, Any]] = []
+    pages = [
+        {"data": [{"id": "1"}], "info": {"more_records": True, "next_page_token": "tok-a"}},
+        {"data": [{"id": "2"}], "info": {"more_records": True, "next_page_token": "tok-b"}},
+        {"data": [{"id": "3"}], "info": {"more_records": False}},
+    ]
+    counter = [0]
+
+    def fetch(module_path: str, params: dict[str, Any]) -> dict[str, Any]:
+        seen.append(params)
+        idx = counter[0]
+        counter[0] += 1
+        return pages[idx]
+
+    rows = paginate(fetch, "/crm/v3/Contacts", CONTACT_FIELDS, per_page=200)
+    assert [r["id"] for r in rows] == ["1", "2", "3"]
+    assert "page_token" not in seen[0]
+    assert seen[1]["page_token"] == "tok-a"
+    assert seen[2]["page_token"] == "tok-b"
+    assert all("page" not in p for p in seen)
+
+
+def test_paginate_stops_when_more_records_true_but_no_token() -> None:
+    """Defensive: malformed Zoho response with more_records=true and no
+    next_page_token should stop with rows-so-far rather than spin forever."""
+    pages = [
+        {"data": [{"id": "1"}], "info": {"more_records": True}},
+    ]
+    fetch = _stub_fetch({"/crm/v3/Contacts": pages})
+    rows = paginate(fetch, "/crm/v3/Contacts", CONTACT_FIELDS)
+    assert rows == [{"id": "1"}]
 
 
 def test_fetch_contacts_uses_contacts_module() -> None:
