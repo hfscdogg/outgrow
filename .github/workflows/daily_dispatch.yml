@@ -47,6 +47,10 @@ jobs:
           QBO_CLIENT_SECRET: ${{ secrets.QBO_CLIENT_SECRET }}
           QBO_SANDBOX_REFRESH_TOKEN: ${{ secrets.QBO_SANDBOX_REFRESH_TOKEN }}
           QBO_SANDBOX_REALM_ID: ${{ secrets.QBO_SANDBOX_REALM_ID }}
+          # PAT scoped to actions:write on this repo only — used to
+          # write back the rotated QBO refresh token. Without it, the
+          # sync still works for ~24h then breaks with invalid_grant.
+          GH_PAT_ROTATE_SECRETS: ${{ secrets.GH_PAT_ROTATE_SECRETS }}
         run: uv run python -m sync.qbo
 
       - name: Rank → Draft → Mail (orchestrator, dry-run by default)

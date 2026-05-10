@@ -9,6 +9,7 @@ dependencies = [
     "rapidfuzz>=3.6",
     "click>=8.1",
     "anthropic>=0.39",
+    "pynacl>=1.5",
 ]
 
 [project.optional-dependencies]
