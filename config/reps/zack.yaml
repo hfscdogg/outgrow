@@ -13,8 +13,28 @@ zoho_user_id: "176704000151417023"
 # Owner CC'd on the first 5 sends per docs/plan.md Phase 1 review window.
 cc_review_remaining: 5
 
-# TODO(owner): run `python -m voice.wizard --rep zack \
-#   --history .cache/voice/zack.csv` to populate distilled voice
-# features. The wizard reads the rep's last ~200 outbound texts from
-# the cache CSV and writes the distilled tone patterns here. Raw texts
-# stay in `.cache/voice/zack.csv` (gitignored) and never enter git.
+# Voice profile — placeholder copied from henry.yaml until Zack runs
+# his own scenario-interview session. The owner-CC review window
+# (cc_review_remaining=5 above) is the safety net while this is
+# borrowed: the owner will see Zack's first 5 drafts and can flag any
+# voice drift before it reaches a customer. Replace these values with
+# Zack's distilled features as soon as his session output lands.
+formality: casual
+avg_sentence_length: 6.5
+typical_greetings:
+  - hey
+typical_signoffs:
+  - let me know
+  - check it out
+emoji_per_message: 0.0
+distinctive_vocab:
+  - referral
+  - warranty
+  - demo
+  - design
+  - killer
+  - thought
+  - livewire
+  - system
+  - happy
+  - miss
