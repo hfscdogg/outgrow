@@ -40,7 +40,7 @@ def probe_zoho_crm() -> bool:
     refresh_token = os.environ.get("ZOHO_CRM_REFRESH_TOKEN", "")
     client_id = os.environ.get("ZOHO_CRM_CLIENT_ID", "")
     client_secret = os.environ.get("ZOHO_CRM_CLIENT_SECRET", "")
-    dc = os.environ.get("ZOHO_CRM_DC", "com")  # default to .com (US)
+    dc = os.environ.get("ZOHO_CRM_DC") or "com"  # default to .com (US)
 
     if not all([refresh_token, client_id, client_secret]):
         print("[SKIP] zoho_crm (cred missing)")
