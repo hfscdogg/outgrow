@@ -193,3 +193,18 @@ def test_zoho_creds_from_env_treats_empty_string_as_missing() -> None:
     }
     with pytest.raises(RuntimeError, match="ZOHO_CRM_CLIENT_ID"):
         ZohoCreds.from_env(env)
+
+
+def test_zoho_creds_from_env_treats_empty_dc_as_default() -> None:
+    """GitHub Actions interpolates an unset `vars.ZOHO_CRM_DC` as an empty
+    string rather than omitting the env var. Empty string must fall back
+    to the ``com`` default — otherwise the OAuth URL becomes
+    ``https://accounts.zoho./oauth/v2/token`` and DNS resolution fails
+    with `[Errno -2] Name or service not known`."""
+    env = {
+        "ZOHO_CRM_REFRESH_TOKEN": "rt",
+        "ZOHO_CRM_CLIENT_ID": "cid",
+        "ZOHO_CRM_CLIENT_SECRET": "csec",
+        "ZOHO_CRM_DC": "",
+    }
+    assert ZohoCreds.from_env(env).dc == "com"

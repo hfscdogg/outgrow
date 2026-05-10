@@ -75,7 +75,7 @@ class ZohoCreds:
             refresh_token=source["ZOHO_CRM_REFRESH_TOKEN"],
             client_id=source["ZOHO_CRM_CLIENT_ID"],
             client_secret=source["ZOHO_CRM_CLIENT_SECRET"],
-            dc=source.get("ZOHO_CRM_DC", "com"),
+            dc=source.get("ZOHO_CRM_DC") or "com",
         )
 
 
