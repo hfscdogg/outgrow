@@ -14,17 +14,21 @@ from pathlib import Path
 import pytest
 
 from ranking.engine import (
+    ELIGIBILITY_REASONS,
     Customer,
+    EligibilityDiagnostics,
     Play,
     RankingConfig,
     dormancy_days,
     dormancy_factor,
+    eligibility_reason,
     is_eligible,
     is_in_install_window,
     legacy_bonus_cents,
     load_plays,
     load_ranking_config,
     rank_for_rep,
+    rank_for_rep_with_diagnostics,
     score,
 )
 
@@ -212,6 +216,52 @@ def test_eligibility_happy_path() -> None:
     assert is_eligible(c, _play(), _cfg(), date(2026, 5, 6)) is True
 
 
+# ---- eligibility_reason ----
+
+
+def test_eligibility_reason_none_when_eligible() -> None:
+    c = _customer(last_purchase_at=date(2025, 5, 6))
+    assert eligibility_reason(c, _play(), _cfg(), date(2026, 5, 6)) is None
+
+
+def test_eligibility_reason_classifies_each_rejection() -> None:
+    today = date(2026, 5, 6)
+    cfg = _cfg()
+    cases = {
+        "play_disabled": (_customer(), _play(enabled=False)),
+        "suppressed": (_customer(suppressed=True, suppression_reason="x"), _play()),
+        "low_confidence": (_customer(rep_match_confidence=0.1), _play()),
+        "install_window": (
+            _customer(last_install_completed_at=date(2026, 4, 30)),
+            _play(min_days_since_install=60),
+        ),
+        "no_purchase_date": (_customer(last_purchase_at=None), _play()),
+        "too_recent": (_customer(last_purchase_at=date(2026, 5, 1)), _play()),
+    }
+    for expected, (c, p) in cases.items():
+        assert eligibility_reason(c, p, cfg, today) == expected, expected
+
+
+def test_eligibility_reason_keys_are_all_documented() -> None:
+    """Every key returned by eligibility_reason must appear in ELIGIBILITY_REASONS."""
+    today = date(2026, 5, 6)
+    cfg = _cfg()
+    keys = {
+        eligibility_reason(_customer(), _play(enabled=False), cfg, today),
+        eligibility_reason(_customer(suppressed=True), _play(), cfg, today),
+        eligibility_reason(_customer(rep_match_confidence=0.0), _play(), cfg, today),
+        eligibility_reason(
+            _customer(last_install_completed_at=today),
+            _play(min_days_since_install=10),
+            cfg,
+            today,
+        ),
+        eligibility_reason(_customer(last_purchase_at=None), _play(), cfg, today),
+        eligibility_reason(_customer(last_purchase_at=today), _play(), cfg, today),
+    }
+    assert keys <= set(ELIGIBILITY_REASONS)
+
+
 # ---- score ----
 
 
@@ -325,6 +375,57 @@ def test_rank_top_n_truncates_result() -> None:
     customers = [_customer(id=f"c{i}", ltv_cents=(i + 1) * 10_000) for i in range(10)]
     ranked = rank_for_rep(customers, _play(), _cfg(), "zack", today, top_n=3)
     assert len(ranked) == 3
+
+
+# ---- rank_for_rep_with_diagnostics ----
+
+
+def test_diagnostics_counts_only_rep_owned_customers() -> None:
+    today = date(2026, 5, 6)
+    customers = [
+        _customer(id="z1", rep_id="zack"),
+        _customer(id="z2", rep_id="zack", suppressed=True),
+        _customer(id="h1", rep_id="henry", suppressed=True),  # not counted for zack
+    ]
+    _, diag = rank_for_rep_with_diagnostics(customers, _play(), _cfg(), "zack", today)
+    assert diag.candidates == 2
+    assert diag.rejected == {"suppressed": 1}
+
+
+def test_diagnostics_classifies_mixed_rejections() -> None:
+    today = date(2026, 5, 6)
+    customers = [
+        _customer(id="ok"),
+        _customer(id="suppressed", suppressed=True),
+        _customer(id="low-rep-match", rep_match_confidence=0.1),
+        _customer(id="too-recent", last_purchase_at=date(2026, 5, 1)),
+        _customer(id="no-purchase", last_purchase_at=None),
+    ]
+    scored, diag = rank_for_rep_with_diagnostics(customers, _play(), _cfg(), "zack", today)
+    assert [s.customer_id for s in scored] == ["ok"]
+    assert diag.candidates == 5
+    assert diag.rejected == {
+        "suppressed": 1,
+        "low_confidence": 1,
+        "too_recent": 1,
+        "no_purchase_date": 1,
+    }
+
+
+def test_diagnostics_empty_when_no_rep_customers() -> None:
+    today = date(2026, 5, 6)
+    customers = [_customer(id="h1", rep_id="henry")]
+    scored, diag = rank_for_rep_with_diagnostics(customers, _play(), _cfg(), "zack", today)
+    assert scored == []
+    assert diag == EligibilityDiagnostics(candidates=0, rejected={})
+
+
+def test_diagnostics_play_disabled_attributes_all_rejections() -> None:
+    today = date(2026, 5, 6)
+    customers = [_customer(id="c1"), _customer(id="c2")]
+    _, diag = rank_for_rep_with_diagnostics(customers, _play(enabled=False), _cfg(), "zack", today)
+    assert diag.candidates == 2
+    assert diag.rejected == {"play_disabled": 2}
 
 
 # ---- loaders read shipped configs ----

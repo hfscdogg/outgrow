@@ -257,6 +257,42 @@ def test_run_pipeline_returns_no_eligible_when_owner_unmapped() -> None:
 
     assert results[0].status == PulseStatus.NO_ELIGIBLE_CUSTOMER
     assert client.messages.calls == []  # never reached the drafter
+    # Owner mapping filters upstream of ranking, so this rep has zero
+    # candidates rather than a per-reason rejection tally.
+    assert results[0].eligibility is not None
+    assert results[0].eligibility.candidates == 0
+    assert results[0].eligibility.rejected == {}
+
+
+def test_run_pipeline_diagnostics_attach_to_happy_path_result() -> None:
+    """Diagnostics ride along even when a pulse goes through, so the funnel
+    is visible day-over-day (helps owner spot when filters start cutting too
+    much).
+    """
+    client = _FakeAnthropic(["Hey Jane — quick check-in on the soundbar."])
+    results = run_pipeline(
+        today=date(2026, 5, 7),
+        reps=[_zack_loaded()],
+        plays=[_play()],
+        ranking_cfg=_ranking_cfg(),
+        drafter_cfg=_drafter_cfg(),  # type: ignore[arg-type]
+        policy=_policy(),
+        judge_profile=_judge_profile(),
+        zoho_contacts=[_zoho_contact()],
+        qbo_customers=[_qbo_customer()],
+        qbo_invoices=[_invoice()],
+        secret=SECRET,
+        control_address="outgrow-control@getlivewire.com",
+        sender_email="outgrow-control@getlivewire.com",
+        anthropic_client=client,
+        smtp_send=lambda _: None,
+        pulse_id_factory=_make_pid,
+        dry_run=True,
+    )
+    assert results[0].status == PulseStatus.DRAFTED_DRY_RUN
+    assert results[0].eligibility is not None
+    assert results[0].eligibility.candidates == 1
+    assert results[0].eligibility.rejected == {}
 
 
 def test_run_pipeline_returns_empty_when_no_enabled_play() -> None:

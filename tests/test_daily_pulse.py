@@ -277,6 +277,10 @@ def test_no_eligible_customer_when_all_suppressed() -> None:
     )
     assert result.status == PulseStatus.NO_ELIGIBLE_CUSTOMER
     assert captured == []
+    # Diagnostics tell the orchestrator log *why* nothing was eligible.
+    assert result.eligibility is not None
+    assert result.eligibility.candidates == 1
+    assert result.eligibility.rejected == {"suppressed": 1}
 
 
 def test_judge_rejection_aborts_send() -> None:
