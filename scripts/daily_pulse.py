@@ -280,6 +280,8 @@ def run_pipeline(
     Skipped reps (OOO / paused) get a ``REP_INACTIVE`` result so the
     workflow log shows the full roster.
     """
+    import time  # noqa: PLC0415  -- only used for timing logs in this function
+
     play = _pick_first_enabled_play(plays)
     if play is None:
         logger.warning("no enabled play in plays.yaml; nothing to do")
@@ -288,10 +290,28 @@ def run_pipeline(
     play_brief = PLAY_BRIEFS.get(play.key, play.key.replace("_", " "))
     user_to_rep = zoho_user_to_rep_id_map(list(reps))
 
+    logger.info(
+        "loaded %d zoho contacts, %d qbo customers, %d qbo invoices, %d reps",
+        len(zoho_contacts),
+        len(qbo_customers),
+        len(qbo_invoices),
+        len(reps),
+    )
+
+    t0 = time.monotonic()
     zoho_records = [zoho_contact_to_record(z) for z in zoho_contacts]
     qbo_records = [qbo_customer_to_record(q) for q in qbo_customers]
     match_result = match(zoho_records, qbo_records)
+    logger.info(
+        "match: auto_matched=%d review_queue=%d unmatched_zoho=%d unmatched_qbo=%d (%.1fs)",
+        len(match_result.auto_matched),
+        len(match_result.review_queue),
+        len(match_result.unmatched_zoho),
+        len(match_result.unmatched_qbo),
+        time.monotonic() - t0,
+    )
 
+    t0 = time.monotonic()
     customers = build_customers(
         zoho_contacts=zoho_contacts,
         qbo_customers=qbo_customers,
@@ -299,15 +319,23 @@ def run_pipeline(
         match_result=match_result,
         zoho_user_to_rep_id=user_to_rep,
     )
+    logger.info(
+        "built %d customer records after rep_id mapping (%.1fs); play=%s",
+        len(customers),
+        time.monotonic() - t0,
+        play.key,
+    )
     briefing_for = _make_briefing_factory(zoho_contacts, ranking_cfg.qbo_horizon)
 
     results: list[PulseRunResult] = []
     for rep in reps:
         if not is_active_today(rep, today):
+            logger.info("rep=%s status=REP_INACTIVE (ooo/paused)", rep.profile.rep_id)
             results.append(
                 PulseRunResult(rep_id=rep.profile.rep_id, status=PulseStatus.REP_INACTIVE)
             )
             continue
+        t_rep = time.monotonic()
         result = run_one_pulse(
             rep=rep.profile,
             candidates=customers,
@@ -327,6 +355,13 @@ def run_pipeline(
             smtp_send=smtp_send,
             judge_profile=judge_profile,
             dry_run=dry_run,
+        )
+        logger.info(
+            "rep=%s status=%s model=%s (%.1fs)",
+            rep.profile.rep_id,
+            result.status,
+            result.model_used or "-",
+            time.monotonic() - t_rep,
         )
         results.append(result)
     return results

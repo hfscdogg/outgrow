@@ -16,7 +16,10 @@ jobs:
   dispatch:
     if: ${{ vars.OUTGROW_PAUSED != 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Sized for production data: Zoho sync ~2m, QBO sync ~9m, orchestrator
+    # ~5m (Tier 3 fuzzy match + 2 Anthropic calls). 45m ceiling leaves
+    # headroom for growth; revisit if real runs trend above 30m.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
