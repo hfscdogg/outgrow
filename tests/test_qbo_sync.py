@@ -192,6 +192,87 @@ def test_qbo_creds_from_env_treats_empty_string_as_missing() -> None:
         QboCreds.from_env(env)
 
 
+def test_qbo_creds_from_env_returns_prod_creds_when_toggle_true() -> None:
+    env = {
+        "OUTGROW_USE_QBO_PROD": "true",
+        "QBO_PROD_CLIENT_ID": "prod-cid",
+        "QBO_PROD_CLIENT_SECRET": "prod-csec",
+        "QBO_PROD_REFRESH_TOKEN": "prod-rt",
+        "QBO_PROD_REALM_ID": "prod-realm",
+        # Sandbox vars present — should NOT be picked when prod toggle is on.
+        "QBO_CLIENT_ID": "sandbox-cid",
+        "QBO_SANDBOX_REFRESH_TOKEN": "sandbox-rt",
+    }
+    creds = QboCreds.from_env(env)
+    assert creds.client_id == "prod-cid"
+    assert creds.client_secret == "prod-csec"
+    assert creds.refresh_token == "prod-rt"
+    assert creds.realm_id == "prod-realm"
+    assert creds.base_url == qbo.PRODUCTION_BASE
+    assert creds.mode == qbo.MODE_PRODUCTION
+
+
+def test_qbo_creds_from_env_returns_sandbox_creds_when_toggle_absent() -> None:
+    env = {
+        "QBO_CLIENT_ID": "cid",
+        "QBO_CLIENT_SECRET": "csec",
+        "QBO_SANDBOX_REFRESH_TOKEN": "rt",
+        "QBO_SANDBOX_REALM_ID": "r1",
+    }
+    creds = QboCreds.from_env(env)
+    assert creds.base_url == qbo.SANDBOX_BASE
+    assert creds.mode == qbo.MODE_SANDBOX
+
+
+def test_qbo_creds_from_env_returns_sandbox_when_toggle_empty_string() -> None:
+    """GitHub Actions interpolates an unset `vars.OUTGROW_USE_QBO_PROD` as
+    an empty string. Must be treated as 'sandbox', not as 'enable prod'."""
+    env = {
+        "OUTGROW_USE_QBO_PROD": "",
+        "QBO_CLIENT_ID": "cid",
+        "QBO_CLIENT_SECRET": "csec",
+        "QBO_SANDBOX_REFRESH_TOKEN": "rt",
+        "QBO_SANDBOX_REALM_ID": "r1",
+    }
+    creds = QboCreds.from_env(env)
+    assert creds.mode == qbo.MODE_SANDBOX
+
+
+def test_qbo_creds_from_env_returns_sandbox_when_toggle_false_string() -> None:
+    env = {
+        "OUTGROW_USE_QBO_PROD": "false",
+        "QBO_CLIENT_ID": "cid",
+        "QBO_CLIENT_SECRET": "csec",
+        "QBO_SANDBOX_REFRESH_TOKEN": "rt",
+        "QBO_SANDBOX_REALM_ID": "r1",
+    }
+    creds = QboCreds.from_env(env)
+    assert creds.mode == qbo.MODE_SANDBOX
+
+
+def test_qbo_creds_from_env_prod_toggle_raises_on_missing_prod_creds() -> None:
+    env = {
+        "OUTGROW_USE_QBO_PROD": "true",
+        # Missing QBO_PROD_CLIENT_SECRET and QBO_PROD_REALM_ID.
+        "QBO_PROD_CLIENT_ID": "prod-cid",
+        "QBO_PROD_REFRESH_TOKEN": "prod-rt",
+    }
+    with pytest.raises(RuntimeError, match=r"production credentials.*QBO_PROD_CLIENT_SECRET"):
+        QboCreds.from_env(env)
+
+
+def test_qbo_creds_from_env_prod_toggle_treats_empty_prod_creds_as_missing() -> None:
+    env = {
+        "OUTGROW_USE_QBO_PROD": "true",
+        "QBO_PROD_CLIENT_ID": "prod-cid",
+        "QBO_PROD_CLIENT_SECRET": "",
+        "QBO_PROD_REFRESH_TOKEN": "prod-rt",
+        "QBO_PROD_REALM_ID": "prod-realm",
+    }
+    with pytest.raises(RuntimeError, match="QBO_PROD_CLIENT_SECRET"):
+        QboCreds.from_env(env)
+
+
 def test_refresh_access_token_surfaces_oauth_400_body(monkeypatch) -> None:
     def fake_urlopen(req, timeout):  # noqa: ARG001
         raise urllib.error.HTTPError(

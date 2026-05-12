@@ -41,12 +41,22 @@ jobs:
           ZOHO_CRM_DC: ${{ vars.ZOHO_CRM_DC }}
         run: uv run python -m sync.zoho_crm
 
-      - name: Sync — QBO sandbox (read-only)
+      - name: Sync — QBO (read-only, sandbox or prod)
         env:
+          # Sandbox creds (default path)
           QBO_CLIENT_ID: ${{ secrets.QBO_CLIENT_ID }}
           QBO_CLIENT_SECRET: ${{ secrets.QBO_CLIENT_SECRET }}
           QBO_SANDBOX_REFRESH_TOKEN: ${{ secrets.QBO_SANDBOX_REFRESH_TOKEN }}
           QBO_SANDBOX_REALM_ID: ${{ secrets.QBO_SANDBOX_REALM_ID }}
+          # Production creds (used when OUTGROW_USE_QBO_PROD=true).
+          # Intuit issues separate client_id / client_secret per env.
+          QBO_PROD_CLIENT_ID: ${{ secrets.QBO_PROD_CLIENT_ID }}
+          QBO_PROD_CLIENT_SECRET: ${{ secrets.QBO_PROD_CLIENT_SECRET }}
+          QBO_PROD_REFRESH_TOKEN: ${{ secrets.QBO_PROD_REFRESH_TOKEN }}
+          QBO_PROD_REALM_ID: ${{ secrets.QBO_PROD_REALM_ID }}
+          # Toggle (repo variable, not secret). Set to "true" to point at
+          # production QBO; absent/false keeps the sandbox path.
+          OUTGROW_USE_QBO_PROD: ${{ vars.OUTGROW_USE_QBO_PROD }}
           # PAT scoped to actions:write on this repo only — used to
           # write back the rotated QBO refresh token. Without it, the
           # sync still works for ~24h then breaks with invalid_grant.
