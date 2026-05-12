@@ -56,7 +56,11 @@ HTTP_TIMEOUT_S = 30
 HTTP_NO_CONTENT = 204
 
 SANDBOX_BASE = "https://sandbox-quickbooks.api.intuit.com"
+PRODUCTION_BASE = "https://quickbooks.api.intuit.com"
 OAUTH_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
+
+MODE_SANDBOX = "sandbox"
+MODE_PRODUCTION = "production"
 
 QueryFetcher = Callable[[str], dict[str, Any]]
 
@@ -68,10 +72,40 @@ class QboCreds:
     refresh_token: str
     realm_id: str
     base_url: str = SANDBOX_BASE
+    mode: str = MODE_SANDBOX
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> QboCreds:
+        """Read QBO credentials from env, picking sandbox vs production via
+        ``OUTGROW_USE_QBO_PROD``.
+
+        Sandbox is the default. Setting ``OUTGROW_USE_QBO_PROD=true`` switches
+        to production: reads ``QBO_PROD_CLIENT_ID``,
+        ``QBO_PROD_CLIENT_SECRET``, ``QBO_PROD_REFRESH_TOKEN``,
+        ``QBO_PROD_REALM_ID``, and targets the production API base.
+        """
         source = env if env is not None else dict(os.environ)
+        use_prod = (source.get("OUTGROW_USE_QBO_PROD") or "").lower() == "true"
+        if use_prod:
+            required = (
+                "QBO_PROD_CLIENT_ID",
+                "QBO_PROD_CLIENT_SECRET",
+                "QBO_PROD_REFRESH_TOKEN",
+                "QBO_PROD_REALM_ID",
+            )
+            missing = [k for k in required if not source.get(k)]
+            if missing:
+                raise RuntimeError(
+                    "Missing QBO production credentials in environment: " + ", ".join(missing)
+                )
+            return cls(
+                client_id=source["QBO_PROD_CLIENT_ID"],
+                client_secret=source["QBO_PROD_CLIENT_SECRET"],
+                refresh_token=source["QBO_PROD_REFRESH_TOKEN"],
+                realm_id=source["QBO_PROD_REALM_ID"],
+                base_url=PRODUCTION_BASE,
+                mode=MODE_PRODUCTION,
+            )
         required = (
             "QBO_CLIENT_ID",
             "QBO_CLIENT_SECRET",
@@ -346,15 +380,19 @@ def maybe_persist_refresh_token(
 
 
 def main(argv: list[str] | None = None) -> int:  # pragma: no cover
-    parser = argparse.ArgumentParser(description="Nightly QBO sandbox read-only sync")
+    parser = argparse.ArgumentParser(description="Nightly QBO read-only sync (sandbox or prod)")
     parser.add_argument("--cache-dir", type=Path, default=CACHE_DIR)
     args = parser.parse_args(argv)
 
     creds = QboCreds.from_env()
     token, new_refresh = refresh_access_token(creds)
+    persist_secret_name = (
+        "QBO_PROD_REFRESH_TOKEN" if creds.mode == MODE_PRODUCTION else "QBO_SANDBOX_REFRESH_TOKEN"
+    )
     maybe_persist_refresh_token(
         new_token=new_refresh,
         old_token=creds.refresh_token,
+        secret_name=persist_secret_name,
         repo=os.environ.get("GITHUB_REPOSITORY"),
         pat=os.environ.get("GH_PAT_ROTATE_SECRETS"),
     )

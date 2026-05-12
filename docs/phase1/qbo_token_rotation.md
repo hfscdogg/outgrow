@@ -21,6 +21,25 @@ still completes (the access token from the same refresh already worked).
 The next run will surface staleness via 400 `invalid_grant` on its own
 refresh, the same way it would have without persistence.
 
+## Sandbox vs production
+
+The QBO sync supports both environments via the `OUTGROW_USE_QBO_PROD`
+repo variable (Settings → Secrets and variables → Actions → Variables tab):
+
+* **Unset / absent / `"false"`**: sandbox mode. Reads `QBO_CLIENT_ID`,
+  `QBO_CLIENT_SECRET`, `QBO_SANDBOX_REFRESH_TOKEN`,
+  `QBO_SANDBOX_REALM_ID`. Targets `sandbox-quickbooks.api.intuit.com`.
+  Rotated tokens persist back to `QBO_SANDBOX_REFRESH_TOKEN`.
+* **`"true"`**: production mode. Reads `QBO_PROD_CLIENT_ID`,
+  `QBO_PROD_CLIENT_SECRET`, `QBO_PROD_REFRESH_TOKEN`,
+  `QBO_PROD_REALM_ID`. Targets `quickbooks.api.intuit.com`. Rotated
+  tokens persist back to `QBO_PROD_REFRESH_TOKEN`.
+
+Production credentials must be unlocked via Intuit's compliance flow
+first (see Intuit Developer Portal → your app → Production). Once
+unlocked, mint a production refresh token via the OAuth Playground
+(Production environment) and add the four `QBO_PROD_*` secrets.
+
 ## Setup (one-time per repo)
 
 1. **Mint a fine-grained PAT** at
