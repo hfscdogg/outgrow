@@ -37,6 +37,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from sync._http import urlopen_read_with_retry
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = REPO_ROOT / ".cache" / "zoho"
 
@@ -99,8 +101,8 @@ def refresh_access_token(creds: ZohoCreds) -> str:
     ).encode()
     req = urllib.request.Request(url, data=body, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
-            payload = json.loads(resp.read())
+        _, body_bytes = urlopen_read_with_retry(req, timeout=HTTP_TIMEOUT_S)
+        payload = json.loads(body_bytes)
     except urllib.error.HTTPError as e:
         err_body = e.read().decode("utf-8", errors="replace")[:500]
         raise RuntimeError(f"Zoho OAuth token refresh failed: HTTP {e.code} {err_body}") from e
@@ -119,10 +121,10 @@ def make_zoho_get(access_token: str, dc: str) -> PageFetcher:
         url = f"{base}{module_path}?{urllib.parse.urlencode(params)}"
         req = urllib.request.Request(url, headers=headers, method="GET")
         try:
-            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
-                if resp.status == HTTP_NO_CONTENT:
-                    return {"data": [], "info": {"more_records": False}}
-                return json.loads(resp.read())
+            status, body = urlopen_read_with_retry(req, timeout=HTTP_TIMEOUT_S)
+            if status == HTTP_NO_CONTENT:
+                return {"data": [], "info": {"more_records": False}}
+            return json.loads(body)
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="replace")[:500]
             raise RuntimeError(
