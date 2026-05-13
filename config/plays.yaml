@@ -8,13 +8,19 @@
 #
 # Seasonal weights default to 1.0 (neutral) for every month. Tune from real
 # action and reply data once the pilot has 30 days of signal.
+#
+# `min/max_days_since_install` are null across all Phase 1 plays because the
+# engine has no install-date source yet (D-Tools sync lands in Phase 2). The
+# dormancy curve (config/ranking.yaml `too_recent_days`) already prevents
+# pestering active customers. Re-enable per-play install gating after
+# D-Tools data starts flowing into `Customer.last_install_completed_at`.
 
 plays:
   - key: daily_proactive
     label: "Daily Proactive Outreach"
     enabled: true
     base_weight: 1.0
-    min_days_since_install: 60
+    min_days_since_install: null
     max_days_since_install: null
     seasonal_weights:
       jan: 1.0
@@ -34,7 +40,7 @@ plays:
     label: "Reverse Did-You-Know"
     enabled: true
     base_weight: 0.8
-    min_days_since_install: 90
+    min_days_since_install: null
     max_days_since_install: null
     seasonal_weights:
       jan: 1.0
@@ -54,8 +60,8 @@ plays:
     label: "Referral Ask"
     enabled: true
     base_weight: 0.6
-    min_days_since_install: 60
-    max_days_since_install: 180
+    min_days_since_install: null
+    max_days_since_install: null
     seasonal_weights:
       jan: 1.0
       feb: 1.0
