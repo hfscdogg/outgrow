@@ -46,6 +46,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from sync._http import urlopen_read_with_retry
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = REPO_ROOT / ".cache" / "qbo"
 
@@ -154,8 +156,8 @@ def refresh_access_token(creds: QboCreds) -> tuple[str, str]:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
-            payload = json.loads(resp.read())
+        _, body_bytes = urlopen_read_with_retry(req, timeout=HTTP_TIMEOUT_S)
+        payload = json.loads(body_bytes)
     except urllib.error.HTTPError as e:
         err_body = e.read().decode("utf-8", errors="replace")[:500]
         raise RuntimeError(f"QBO OAuth token refresh failed: HTTP {e.code} {err_body}") from e
@@ -179,10 +181,10 @@ def make_qbo_query(access_token: str, base_url: str, realm_id: str) -> QueryFetc
         url = f"{base}?{params}"
         req = urllib.request.Request(url, headers=headers, method="GET")
         try:
-            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
-                if resp.status == HTTP_NO_CONTENT:
-                    return {"QueryResponse": {}}
-                return json.loads(resp.read())
+            status, body = urlopen_read_with_retry(req, timeout=HTTP_TIMEOUT_S)
+            if status == HTTP_NO_CONTENT:
+                return {"QueryResponse": {}}
+            return json.loads(body)
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="replace")[:500]
             raise RuntimeError(
@@ -310,8 +312,8 @@ def update_github_actions_secret(
         },
         method="GET",
     )
-    with urllib.request.urlopen(pubkey_req, timeout=HTTP_TIMEOUT_S) as resp:
-        pubkey = json.loads(resp.read())
+    _, pubkey_body = urlopen_read_with_retry(pubkey_req, timeout=HTTP_TIMEOUT_S)
+    pubkey = json.loads(pubkey_body)
 
     public_key = nacl.public.PublicKey(
         pubkey["key"].encode(),
@@ -334,10 +336,10 @@ def update_github_actions_secret(
         },
         method="PUT",
     )
-    with urllib.request.urlopen(put_req, timeout=HTTP_TIMEOUT_S) as resp:
-        # 201 = created, 204 = updated; HTTPError raised by default on 4xx/5xx.
-        if resp.status not in (201, 204):
-            raise RuntimeError(f"GitHub secret update returned status {resp.status}")
+    put_status, _ = urlopen_read_with_retry(put_req, timeout=HTTP_TIMEOUT_S)
+    # 201 = created, 204 = updated; HTTPError raised by default on 4xx/5xx.
+    if put_status not in (201, 204):
+        raise RuntimeError(f"GitHub secret update returned status {put_status}")
 
 
 def maybe_persist_refresh_token(
