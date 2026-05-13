@@ -66,7 +66,7 @@ jobs:
           GH_PAT_ROTATE_SECRETS: ${{ secrets.GH_PAT_ROTATE_SECRETS }}
         run: uv run python -m sync.qbo
 
-      - name: Rank → Draft → Mail (orchestrator, dry-run by default)
+      - name: Rank → Draft → Mail (orchestrator)
         env:
           OUTGROW_HMAC_SECRET: ${{ secrets.OUTGROW_HMAC_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -74,4 +74,23 @@ jobs:
           OUTGROW_OWNER_EMAIL: ${{ vars.OUTGROW_OWNER_EMAIL }}
           OUTGROW_CONTROL_ADDRESS: ${{ vars.OUTGROW_CONTROL_ADDRESS }}
           OUTGROW_SENDER_EMAIL: ${{ vars.OUTGROW_SENDER_EMAIL }}
-        run: uv run python -m scripts.daily_pulse --dry-run
+          # SMTP creds — only consumed when OUTGROW_WRITE_MODE=true selects --write.
+          # Google Workspace defaults: smtp.gmail.com:587 with STARTTLS. Override
+          # OUTGROW_SMTP_HOST/_PORT for a different provider. OUTGROW_SMTP_USER
+          # is the sending mailbox (typically outgrow-control@getlivewire.com);
+          # OUTGROW_SMTP_PASS is a Google App Password (16-char, no spaces).
+          OUTGROW_SMTP_HOST: ${{ vars.OUTGROW_SMTP_HOST }}
+          OUTGROW_SMTP_PORT: ${{ vars.OUTGROW_SMTP_PORT }}
+          OUTGROW_SMTP_USER: ${{ secrets.OUTGROW_SMTP_USER }}
+          OUTGROW_SMTP_PASS: ${{ secrets.OUTGROW_SMTP_PASS }}
+        # `vars.OUTGROW_WRITE_MODE=true` swaps --dry-run for --write. Keep it
+        # absent (or "false") until you've manually dispatched once with --write
+        # and confirmed the test email lands in the rep inbox. The recipient
+        # allowlist + OUTGROW_PAUSED gate are the safety belts; this toggle is
+        # the explicit ignition.
+        run: |
+          if [ "${{ vars.OUTGROW_WRITE_MODE }}" = "true" ]; then
+            uv run python -m scripts.daily_pulse --write
+          else
+            uv run python -m scripts.daily_pulse --dry-run
+          fi

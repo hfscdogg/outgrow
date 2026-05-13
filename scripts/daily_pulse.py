@@ -64,6 +64,7 @@ from pulse.mailer import (
     build_action_links,
     build_pulse_email,
     load_recipient_policy,
+    make_smtp_sender,
     send_pulse,
 )
 from ranking.engine import (
@@ -403,6 +404,24 @@ def _logging_smtp_sender(msg: EmailMessage) -> None:  # pragma: no cover
     )
 
 
+def _smtp_sender_from_env() -> SmtpSender:  # pragma: no cover
+    """Build a real SMTP sender from env vars. Raises if any are missing.
+
+    Defaults are tuned for Google Workspace (smtp.gmail.com:587 with
+    STARTTLS). Override ``OUTGROW_SMTP_HOST`` / ``_PORT`` for other
+    providers (Zoho Mail, Microsoft 365, etc.).
+    """
+    host = os.environ.get("OUTGROW_SMTP_HOST", "smtp.gmail.com")
+    port = int(os.environ.get("OUTGROW_SMTP_PORT", "587"))
+    user = os.environ.get("OUTGROW_SMTP_USER")
+    password = os.environ.get("OUTGROW_SMTP_PASS")
+    if not user or not password:
+        raise RuntimeError(
+            "OUTGROW_SMTP_USER and OUTGROW_SMTP_PASS must be set to run with --write"
+        )
+    return make_smtp_sender(host=host, port=port, user=user, password=password)
+
+
 def main(argv: list[str] | None = None) -> int:  # pragma: no cover
     """CLI entry: load configs + caches, run pipeline, print summary."""
     parser = argparse.ArgumentParser(description="Daily Outgrow pulse orchestrator")
@@ -427,12 +446,6 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
     if os.environ.get("OUTGROW_PAUSED", "").lower() == "true":
         logger.info("OUTGROW_PAUSED=true — exiting before any work.")
         return 0
-
-    if not args.dry_run:
-        raise NotImplementedError(
-            "--write requires SMTP creds in GH Actions secrets (Phase 2). "
-            "Run with --dry-run for now."
-        )
 
     owner_email = os.environ.get("OUTGROW_OWNER_EMAIL")
     if not owner_email:
@@ -473,6 +486,14 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
     def pulse_id_factory(rep_id: str) -> str:
         return f"{today.isoformat()}-{rep_id}"
 
+    smtp_sender: SmtpSender
+    if args.dry_run:
+        smtp_sender = _logging_smtp_sender
+        logger.info("dry-run: drafts will be generated but no email will be sent")
+    else:
+        smtp_sender = _smtp_sender_from_env()
+        logger.info("write mode: pulses will be emailed via SMTP")
+
     results = run_pipeline(
         today=today,
         reps=reps,
@@ -488,7 +509,7 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
         control_address=control_address,
         sender_email=sender_email,
         anthropic_client=client,
-        smtp_send=_logging_smtp_sender,
+        smtp_send=smtp_sender,
         pulse_id_factory=pulse_id_factory,
         dry_run=args.dry_run,
     )
