@@ -106,6 +106,27 @@ class ScoredCandidate:
     components: dict[str, float]
 
 
+@dataclass(frozen=True)
+class EligibilityDiagnostics:
+    """Per-rep funnel snapshot — how many of this rep's customers reached scoring."""
+
+    candidates: int
+    rejected: dict[str, int]
+
+
+# Ordered eligibility checks; the first failing one is the reason returned by
+# eligibility_reason(). Kept in one place so the diagnostics counter and the
+# is_eligible boolean can never drift.
+ELIGIBILITY_REASONS: tuple[str, ...] = (
+    "play_disabled",
+    "suppressed",
+    "low_confidence",
+    "install_window",
+    "no_purchase_date",
+    "too_recent",
+)
+
+
 def load_plays(path: Path = DEFAULT_PLAYS_PATH) -> list[Play]:
     payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     plays: list[Play] = []
@@ -183,17 +204,28 @@ def is_in_install_window(customer: Customer, play: Play, today: date) -> bool:
     return True
 
 
-def is_eligible(customer: Customer, play: Play, cfg: RankingConfig, today: date) -> bool:
+def eligibility_reason(  # noqa: PLR0911 -- guard-chain; one return per filter is the point
+    customer: Customer, play: Play, cfg: RankingConfig, today: date
+) -> str | None:
+    """Return ``None`` if eligible, else a key from ``ELIGIBILITY_REASONS``."""
     if not play.enabled:
-        return False
+        return "play_disabled"
     if customer.suppressed:
-        return False
+        return "suppressed"
     if customer.rep_match_confidence < cfg.min_rep_match_confidence:
-        return False
+        return "low_confidence"
     if not is_in_install_window(customer, play, today):
-        return False
+        return "install_window"
     days = dormancy_days(customer, today)
-    return days is not None and days >= cfg.too_recent_days
+    if days is None:
+        return "no_purchase_date"
+    if days < cfg.too_recent_days:
+        return "too_recent"
+    return None
+
+
+def is_eligible(customer: Customer, play: Play, cfg: RankingConfig, today: date) -> bool:
+    return eligibility_reason(customer, play, cfg, today) is None
 
 
 def score(customer: Customer, play: Play, cfg: RankingConfig, today: date) -> ScoredCandidate:
@@ -221,6 +253,36 @@ def score(customer: Customer, play: Play, cfg: RankingConfig, today: date) -> Sc
     )
 
 
+def rank_for_rep_with_diagnostics(
+    customers: Iterable[Customer],
+    play: Play,
+    cfg: RankingConfig,
+    rep_id: str,
+    today: date,
+    *,
+    top_n: int | None = None,
+) -> tuple[list[ScoredCandidate], EligibilityDiagnostics]:
+    """Same as ``rank_for_rep`` but also returns a per-reason rejection tally.
+
+    The tally counts only customers whose ``rep_id`` matches; the funnel
+    upstream of that (Zoho owner mapping, suppressions, etc.) lives in
+    ``pipeline/customers.py`` and isn't this function's concern.
+    """
+    rep_customers = [c for c in customers if c.rep_id == rep_id]
+    rejected: dict[str, int] = {}
+    eligible: list[Customer] = []
+    for c in rep_customers:
+        reason = eligibility_reason(c, play, cfg, today)
+        if reason is None:
+            eligible.append(c)
+        else:
+            rejected[reason] = rejected.get(reason, 0) + 1
+    scored = [score(c, play, cfg, today) for c in eligible]
+    scored.sort(key=lambda s: s.score, reverse=True)
+    truncated = scored if top_n is None else scored[:top_n]
+    return truncated, EligibilityDiagnostics(candidates=len(rep_customers), rejected=rejected)
+
+
 def rank_for_rep(
     customers: Iterable[Customer],
     play: Play,
@@ -231,10 +293,5 @@ def rank_for_rep(
     top_n: int | None = None,
 ) -> list[ScoredCandidate]:
     """Eligible-customers-only, score, sort descending, optionally truncate."""
-    scored = [
-        score(c, play, cfg, today)
-        for c in customers
-        if c.rep_id == rep_id and is_eligible(c, play, cfg, today)
-    ]
-    scored.sort(key=lambda s: s.score, reverse=True)
-    return scored if top_n is None else scored[:top_n]
+    scored, _ = rank_for_rep_with_diagnostics(customers, play, cfg, rep_id, today, top_n=top_n)
+    return scored

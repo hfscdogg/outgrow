@@ -68,11 +68,12 @@ from pulse.mailer import (
 )
 from ranking.engine import (
     Customer,
+    EligibilityDiagnostics,
     Play,
     RankingConfig,
     load_plays,
     load_ranking_config,
-    rank_for_rep,
+    rank_for_rep_with_diagnostics,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -132,6 +133,7 @@ class PulseRunResult:
     model_used: str | None = None
     judge: JudgeResult | None = None
     generation: GenerationResult | None = None
+    eligibility: EligibilityDiagnostics | None = None
 
 
 BriefingFn = Callable[[Customer], tuple[DraftBriefing, MailBriefing]]
@@ -168,9 +170,15 @@ def run_one_pulse(
     escalate based on the returned ``judge`` field.
     """
     candidates = list(candidates)
-    ranked = rank_for_rep(candidates, play, ranking_cfg, rep.rep_id, today, top_n=1)
+    ranked, diagnostics = rank_for_rep_with_diagnostics(
+        candidates, play, ranking_cfg, rep.rep_id, today, top_n=1
+    )
     if not ranked:
-        return PulseRunResult(rep_id=rep.rep_id, status=PulseStatus.NO_ELIGIBLE_CUSTOMER)
+        return PulseRunResult(
+            rep_id=rep.rep_id,
+            status=PulseStatus.NO_ELIGIBLE_CUSTOMER,
+            eligibility=diagnostics,
+        )
     top = ranked[0]
     customer = next(c for c in candidates if c.id == top.customer_id)
     draft_brief, mail_brief = briefing_for(customer)
@@ -192,6 +200,7 @@ def run_one_pulse(
             model_used=gen.model_used,
             judge=verdict,
             generation=gen,
+            eligibility=diagnostics,
         )
 
     links = build_action_links(
@@ -218,6 +227,7 @@ def run_one_pulse(
             model_used=gen.model_used,
             judge=verdict,
             generation=gen,
+            eligibility=diagnostics,
         )
 
     send_pulse(pulse_email, sender_email=sender_email, smtp_send=smtp_send)
@@ -229,6 +239,7 @@ def run_one_pulse(
         model_used=gen.model_used,
         judge=verdict,
         generation=gen,
+        eligibility=diagnostics,
     )
 
 
@@ -237,6 +248,17 @@ def _pick_first_enabled_play(plays: Sequence[Play]) -> Play | None:
         if p.enabled:
             return p
     return None
+
+
+def _format_eligibility(diag: EligibilityDiagnostics | None) -> str:
+    """Render diagnostics as ``candidates=N rejected=reason=K reason=K`` for the log."""
+    if diag is None:
+        return "candidates=- rejected=-"
+    if not diag.rejected:
+        return f"candidates={diag.candidates} rejected=none"
+    parts = sorted(diag.rejected.items(), key=lambda kv: (-kv[1], kv[0]))
+    rendered = " ".join(f"{k}={v}" for k, v in parts)
+    return f"candidates={diag.candidates} rejected={rendered}"
 
 
 def _make_briefing_factory(
@@ -357,9 +379,10 @@ def run_pipeline(
             dry_run=dry_run,
         )
         logger.info(
-            "rep=%s status=%s model=%s (%.1fs)",
+            "rep=%s status=%s %s model=%s (%.1fs)",
             rep.profile.rep_id,
             result.status,
+            _format_eligibility(result.eligibility),
             result.model_used or "-",
             time.monotonic() - t_rep,
         )
@@ -484,6 +507,8 @@ def _print_dry_run_report(results: list[PulseRunResult]) -> None:  # pragma: no 
     for r in results:
         print(f"\n=== {r.rep_id} ===")
         print(f"status: {r.status}")
+        if r.eligibility is not None:
+            print(f"eligibility: {_format_eligibility(r.eligibility)}")
         if r.customer_id:
             print(f"customer_id: {r.customer_id}")
         if r.pulse_id:
