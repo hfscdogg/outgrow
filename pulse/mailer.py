@@ -13,6 +13,7 @@ raise ``NetworkBlockedError``. The cron-runner instantiates the real
 
 from __future__ import annotations
 
+import smtplib
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from email.message import EmailMessage
@@ -220,3 +221,29 @@ def send_pulse(
     msg = to_email_message(pulse, sender_email=sender_email)
     smtp_send(msg)
     return msg
+
+
+def make_smtp_sender(
+    *,
+    host: str,
+    port: int,
+    user: str,
+    password: str,
+) -> SmtpSender:
+    """Build a real ``SmtpSender`` backed by ``smtplib.SMTP`` + STARTTLS.
+
+    Used by ``scripts/daily_pulse.py`` when ``--write`` is active. Tests
+    never reach here — they inject a fake closure directly. STARTTLS is
+    required for Google Workspace, Zoho Mail, and Microsoft 365 SMTP
+    relays on port 587; if a provider needs implicit TLS (port 465),
+    swap to ``smtplib.SMTP_SSL`` — but the defaults are tuned for the
+    STARTTLS path because that's what every major hosted relay supports.
+    """
+
+    def send(msg: EmailMessage) -> None:
+        with smtplib.SMTP(host, port) as smtp:
+            smtp.starttls()
+            smtp.login(user, password)
+            smtp.send_message(msg)
+
+    return send

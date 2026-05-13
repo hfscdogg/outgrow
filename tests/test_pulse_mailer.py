@@ -21,6 +21,7 @@ from pulse.mailer import (
     build_action_links,
     build_pulse_email,
     load_recipient_policy,
+    make_smtp_sender,
     render_pulse_body,
     send_pulse,
     should_cc_owner,
@@ -292,3 +293,80 @@ def test_to_email_message_omits_cc_header_when_empty() -> None:
     )
     msg = to_email_message(pulse, sender_email="outgrow-control@getlivewire.com")
     assert msg["Cc"] is None
+
+
+# ---- make_smtp_sender --------------------------------------------------------
+
+
+class _FakeSMTP:
+    """Stand-in for ``smtplib.SMTP`` that records the call sequence."""
+
+    instances: list[_FakeSMTP] = []
+
+    def __init__(self, host: str, port: int) -> None:
+        self.host = host
+        self.port = port
+        self.calls: list[tuple[str, ...]] = [("init", host, str(port))]
+        _FakeSMTP.instances.append(self)
+
+    def __enter__(self) -> _FakeSMTP:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.calls.append(("exit",))
+
+    def starttls(self) -> None:
+        self.calls.append(("starttls",))
+
+    def login(self, user: str, password: str) -> None:
+        self.calls.append(("login", user, password))
+
+    def send_message(self, msg: EmailMessage) -> None:
+        self.calls.append(("send", msg["To"]))
+
+
+def test_make_smtp_sender_starts_tls_logs_in_and_sends(monkeypatch: pytest.MonkeyPatch) -> None:
+    _FakeSMTP.instances.clear()
+    monkeypatch.setattr("smtplib.SMTP", _FakeSMTP)
+
+    sender = make_smtp_sender(
+        host="smtp.gmail.com",
+        port=587,
+        user="outgrow-control@getlivewire.com",
+        password="app-password-16char",
+    )
+    msg = EmailMessage()
+    msg["From"] = "outgrow-control@getlivewire.com"
+    msg["To"] = ZACK_EMAIL
+    msg["Subject"] = "test"
+    msg.set_content("hi")
+
+    sender(msg)
+
+    assert len(_FakeSMTP.instances) == 1
+    smtp = _FakeSMTP.instances[0]
+    assert smtp.calls == [
+        ("init", "smtp.gmail.com", "587"),
+        ("starttls",),
+        ("login", "outgrow-control@getlivewire.com", "app-password-16char"),
+        ("send", ZACK_EMAIL),
+        ("exit",),  # context-manager close
+    ]
+
+
+def test_make_smtp_sender_returns_a_reusable_closure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each call opens its own SMTP connection — no shared state between sends."""
+    _FakeSMTP.instances.clear()
+    monkeypatch.setattr("smtplib.SMTP", _FakeSMTP)
+
+    sender = make_smtp_sender(host="h", port=25, user="u", password="p")
+    msg1 = EmailMessage()
+    msg1["To"] = "a@example.com"
+    msg2 = EmailMessage()
+    msg2["To"] = "b@example.com"
+    sender(msg1)
+    sender(msg2)
+
+    assert len(_FakeSMTP.instances) == 2
+    assert _FakeSMTP.instances[0].calls[-2] == ("send", "a@example.com")
+    assert _FakeSMTP.instances[1].calls[-2] == ("send", "b@example.com")
