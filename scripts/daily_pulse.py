@@ -410,9 +410,14 @@ def _smtp_sender_from_env() -> SmtpSender:  # pragma: no cover
     Defaults are tuned for Google Workspace (smtp.gmail.com:587 with
     STARTTLS). Override ``OUTGROW_SMTP_HOST`` / ``_PORT`` for other
     providers (Zoho Mail, Microsoft 365, etc.).
+
+    Uses ``... or <default>`` rather than ``dict.get(key, default)``
+    because GitHub Actions interpolates an unset repo variable as an
+    empty string — present-but-empty, which ``.get(..., default)``
+    would not recognize as missing.
     """
-    host = os.environ.get("OUTGROW_SMTP_HOST", "smtp.gmail.com")
-    port = int(os.environ.get("OUTGROW_SMTP_PORT", "587"))
+    host = os.environ.get("OUTGROW_SMTP_HOST") or "smtp.gmail.com"
+    port = int(os.environ.get("OUTGROW_SMTP_PORT") or "587")
     user = os.environ.get("OUTGROW_SMTP_USER")
     password = os.environ.get("OUTGROW_SMTP_PASS")
     if not user or not password:
