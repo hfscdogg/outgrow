@@ -13,9 +13,11 @@ raise ``NetworkBlockedError``. The cron-runner instantiates the real
 
 from __future__ import annotations
 
+import html
 import smtplib
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from datetime import date
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -67,6 +69,10 @@ class RecipientPolicy:
 class CustomerBriefing:
     name: str
     rows: tuple[tuple[str, str], ...]  # ordered key/value pairs to render
+    # Humanized "X ago" string for the email subhead — e.g. "4y 3mo ago".
+    # Computed upstream from ``last_purchase_at``; absent when the customer
+    # has no recorded purchase. Renderers fall back to a name-only headline.
+    dormancy_label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +90,7 @@ class PulseEmail:
     cc: tuple[str, ...]
     subject: str
     body: str
+    html_body: str | None = None
     cc_was_review: bool = field(default=False)
 
 
@@ -151,8 +158,11 @@ def render_pulse_body(
     draft_text: str,
     links: ActionLinks,
 ) -> str:
-    """Plain-text body. Markdown rendering is a Phase 2+ enhancement."""
-    rows: list[str] = [f"Morning {rep_first_name},", "", f"Today's pulse: {briefing.name}", ""]
+    """Plain-text fallback for mail clients that don't render HTML."""
+    rows: list[str] = [f"Morning {rep_first_name},", "", f"Today's pulse: {briefing.name}"]
+    if briefing.dormancy_label:
+        rows.append(f"Last touch: {briefing.dormancy_label}")
+    rows.append("")
     for key, value in briefing.rows:
         rows.append(f"  {key}: {value}")
     rows.extend(["", "Suggested text (in your voice):", "", draft_text, ""])
@@ -163,6 +173,155 @@ def render_pulse_body(
     if links.reassign:
         rows.append(f"  Not my customer:   {links.reassign}")
     return "\n".join(rows)
+
+
+# Inline-only CSS (Gmail strips <style> blocks). Color palette + serif
+# headline follow docs/design/pulse_email_mockup.png; tested in Gmail web,
+# Apple Mail, and Outlook 365 web. Fonts cascade: pretty serif first,
+# robust system serif as fallback (Outlook always lands on the latter).
+_SERIF_STACK = "'Cormorant Garamond', 'Playfair Display', Georgia, 'Times New Roman', serif"
+_SANS_STACK = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+_COLOR_BG = "#000000"
+_COLOR_CARD = "#f7f3ec"
+_COLOR_INK = "#1a1a1a"
+_COLOR_MUTED = "#6b6b6b"
+_COLOR_ACCENT = "#d97a3a"
+_COLOR_WHITE = "#ffffff"
+
+
+def _format_header_date(today: date) -> str:
+    """Render `today` as the email header date, e.g. ``Tuesday``."""
+    return today.strftime("%A")
+
+
+def _action_button(
+    href: str,
+    label: str,
+    *,
+    primary: bool,
+) -> str:
+    """Inline-styled <a> rendered as a button. ``primary`` flips fill+border."""
+    if primary:
+        bg, color, border = _COLOR_ACCENT, _COLOR_WHITE, _COLOR_ACCENT
+    else:
+        bg, color, border = _COLOR_WHITE, _COLOR_INK, "#d4cfc4"
+    style = "; ".join(
+        [
+            "display:inline-block",
+            f"background:{bg}",
+            f"color:{color}",
+            f"border:1px solid {border}",
+            "padding:14px 20px",
+            "text-decoration:none",
+            f"font-family:{_SANS_STACK}",
+            "font-size:13px",
+            "font-weight:600",
+            "letter-spacing:0.12em",
+            "text-transform:uppercase",
+            "border-radius:2px",
+            "min-width:140px",
+            "text-align:center",
+        ]
+    )
+    return f'<a href="{html.escape(href, quote=True)}" style="{style}">{html.escape(label)}</a>'
+
+
+def render_pulse_html(
+    *,
+    rep_first_name: str,
+    briefing: CustomerBriefing,
+    draft_text: str,
+    links: ActionLinks,
+    today: date,
+) -> str:
+    """HTML pulse body. Plain-text alternative is ``render_pulse_body``.
+
+    All styling is inline so Gmail (which strips <style> blocks in some
+    contexts) renders consistently. The layout uses tables for cross-
+    client compatibility — Outlook still doesn't fully support modern
+    block layout.
+    """
+    rep_name_safe = html.escape(rep_first_name)
+    customer_safe = html.escape(briefing.name)
+    date_label = html.escape(_format_header_date(today))
+    subhead = (
+        f"Last touch: {html.escape(briefing.dormancy_label)}" if briefing.dormancy_label else ""
+    )
+
+    row_html = "".join(
+        f"<tr>"
+        f'<td style="padding:14px 0;color:{_COLOR_MUTED};font-family:{_SANS_STACK};font-size:12px;letter-spacing:0.14em;text-transform:uppercase;border-bottom:1px dashed #d4cfc4;">{html.escape(key)}</td>'
+        f'<td style="padding:14px 0;color:{_COLOR_INK};font-family:{_SANS_STACK};font-size:15px;text-align:right;border-bottom:1px dashed #d4cfc4;">{html.escape(value)}</td>'
+        f"</tr>"
+        for key, value in briefing.rows
+    )
+
+    buttons = [
+        _action_button(links.sent_as_is, "Sent as-is", primary=True),
+        _action_button(links.sent_with_edits, "Sent w/ edits", primary=False),
+        _action_button(links.skip_today, "Skip today", primary=False),
+    ]
+    if links.reassign:
+        buttons.append(_action_button(links.reassign, "Not my customer", primary=False))
+    buttons_html = "".join(f'<td style="padding:6px;">{btn}</td>' for btn in buttons)
+
+    draft_safe = html.escape(draft_text).replace("\n", "<br>")
+
+    return f"""\
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:{_COLOR_BG};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{_COLOR_BG};">
+  <tr><td align="center" style="padding:24px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="background:{_COLOR_CARD};border-radius:6px;overflow:hidden;max-width:600px;">
+      <tr><td style="background:{_COLOR_BG};padding:24px 32px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="color:{_COLOR_WHITE};font-family:{_SERIF_STACK};font-size:20px;">
+              Your Outgrow pulse &middot; {date_label}
+            </td>
+            <td align="right" style="color:{_COLOR_ACCENT};font-family:{_SANS_STACK};font-size:12px;letter-spacing:0.18em;">
+              07:00 EDT
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 8px 0;color:{_COLOR_MUTED};font-family:{_SANS_STACK};font-size:13px;">Morning {rep_name_safe},</p>
+        <h1 style="margin:0;color:{_COLOR_INK};font-family:{_SERIF_STACK};font-weight:400;font-size:36px;line-height:1.15;">
+          Reach out to <em style="color:{_COLOR_ACCENT};font-style:italic;">{customer_safe}</em> today.
+        </h1>
+        <p style="margin:12px 0 24px 0;color:{_COLOR_MUTED};font-family:{_SANS_STACK};font-size:14px;">
+          {subhead}
+        </p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{_COLOR_CARD};border-left:3px solid {_COLOR_ACCENT};">
+          <tr><td style="padding:8px 20px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              {row_html}
+            </table>
+          </td></tr>
+        </table>
+        <p style="margin:32px 0 12px 0;color:{_COLOR_MUTED};font-family:{_SANS_STACK};font-size:11px;letter-spacing:0.18em;text-transform:uppercase;">
+          Suggested text &middot; In your voice
+        </p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{_COLOR_WHITE};border-radius:4px;">
+          <tr><td style="padding:24px;color:{_COLOR_INK};font-family:{_SERIF_STACK};font-size:18px;line-height:1.5;">
+            {draft_safe}
+          </td></tr>
+        </table>
+        <p style="margin:24px 0 8px 0;color:{_COLOR_MUTED};font-family:{_SANS_STACK};font-size:12px;">
+          Tap one when you&rsquo;re done &mdash; your mail app will pre-fill the reply:
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0">
+          <tr>{buttons_html}</tr>
+        </table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>"""
 
 
 def should_cc_owner(rep: RepProfile) -> bool:
@@ -178,8 +337,14 @@ def build_pulse_email(
     draft_text: str,
     links: ActionLinks,
     policy: RecipientPolicy,
+    today: date | None = None,
 ) -> PulseEmail:
-    """Assemble the rep's pulse and validate every recipient against the allowlist."""
+    """Assemble the rep's pulse and validate every recipient against the allowlist.
+
+    ``today`` drives the HTML header date and is optional so tests + the
+    plain-text fallback still work without it; when omitted, the pulse
+    has no ``html_body`` and the email goes out as text/plain only.
+    """
     cc_owner = should_cc_owner(rep) and rep.email.lower() != policy.owner_email.lower()
     cc = (policy.owner_email,) if cc_owner else ()
     assert_recipients_allowed([rep.email, *cc], policy)
@@ -189,6 +354,17 @@ def build_pulse_email(
         draft_text=draft_text,
         links=links,
     )
+    html_body = (
+        render_pulse_html(
+            rep_first_name=rep.first_name,
+            briefing=briefing,
+            draft_text=draft_text,
+            links=links,
+            today=today,
+        )
+        if today is not None
+        else None
+    )
     subject = f"Outgrow pulse — {briefing.name}"
     return PulseEmail(
         pulse_id=pulse_id,
@@ -196,6 +372,7 @@ def build_pulse_email(
         cc=cc,
         subject=subject,
         body=body,
+        html_body=html_body,
         cc_was_review=cc_owner,
     )
 
@@ -208,6 +385,8 @@ def to_email_message(pulse: PulseEmail, *, sender_email: str) -> EmailMessage:
         msg["Cc"] = ", ".join(pulse.cc)
     msg["Subject"] = pulse.subject
     msg.set_content(pulse.body)
+    if pulse.html_body is not None:
+        msg.add_alternative(pulse.html_body, subtype="html")
     return msg
 
 

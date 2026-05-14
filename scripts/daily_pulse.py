@@ -217,6 +217,7 @@ def run_one_pulse(
         draft_text=gen.draft_text,
         links=links,
         policy=policy,
+        today=today,
     )
 
     if dry_run:
@@ -265,6 +266,7 @@ def _format_eligibility(diag: EligibilityDiagnostics | None) -> str:
 def _make_briefing_factory(
     zoho_contacts: Sequence[dict],
     qbo_horizon: date,
+    today: date,
 ) -> BriefingFn:
     by_id = {str(z["id"]): z for z in zoho_contacts}
 
@@ -273,6 +275,7 @@ def _make_briefing_factory(
             customer,
             zoho_contact=by_id[customer.id],
             qbo_horizon=qbo_horizon,
+            today=today,
         )
 
     return factory
@@ -348,7 +351,7 @@ def run_pipeline(
         time.monotonic() - t0,
         play.key,
     )
-    briefing_for = _make_briefing_factory(zoho_contacts, ranking_cfg.qbo_horizon)
+    briefing_for = _make_briefing_factory(zoho_contacts, ranking_cfg.qbo_horizon, today)
 
     results: list[PulseRunResult] = []
     for rep in reps:

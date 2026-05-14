@@ -355,7 +355,9 @@ def test_run_pipeline_write_path_sends_via_smtp() -> None:
     msg = captured[0]
     assert msg["To"] == ZACK_EMAIL
     assert msg["Cc"] == OWNER_EMAIL  # zack still in review window
-    assert "Jane Smith" in msg.get_content() or "Jane Smith" in msg["Subject"]
+    plain = msg.get_body(preferencelist=("plain",))
+    assert plain is not None
+    assert "Jane Smith" in plain.get_content() or "Jane Smith" in msg["Subject"]
 
 
 def test_run_pipeline_judge_rejection_aborts_send() -> None:

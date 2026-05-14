@@ -168,6 +168,7 @@ def build_customers(
                 last_purchase_at=last_purchase,
                 first_known_contact_at=first_known,
                 rep_match_confidence=ms.score,
+                first_invoice_at=first_invoice,
             )
         )
     return customers
@@ -191,6 +192,34 @@ def _legacy_disclosure(first_known: date | None, qbo_horizon: date) -> str:
     return ""
 
 
+_DAYS_PER_YEAR = 365
+_DAYS_PER_MONTH = 30
+
+
+def _humanize_ago(last: date | None, today: date) -> str | None:
+    """Render ``today - last`` as ``Ny Mmo ago`` / ``N months ago`` / ``today``.
+
+    Approximations: 365 days per year, 30 per month. Off by ~5 days/yr at
+    worst — fine for a subhead ("4y 3mo ago" feels right whether it's
+    really 1,538 or 1,555 days). Returns ``None`` when ``last`` is missing.
+    """
+    if last is None:
+        return None
+    days = (today - last).days
+    if days <= 0:
+        return "today"
+    if days < _DAYS_PER_MONTH:
+        return "this month"
+    if days < _DAYS_PER_YEAR:
+        months = days // _DAYS_PER_MONTH
+        return f"{months} month{'s' if months != 1 else ''} ago"
+    years = days // _DAYS_PER_YEAR
+    remaining_months = (days % _DAYS_PER_YEAR) // _DAYS_PER_MONTH
+    if remaining_months == 0:
+        return f"{years}y ago"
+    return f"{years}y {remaining_months}mo ago"
+
+
 def _customer_display_name(zoho_contact: Mapping[str, Any]) -> str:
     full = zoho_contact.get("Full_Name")
     if full:
@@ -201,11 +230,21 @@ def _customer_display_name(zoho_contact: Mapping[str, Any]) -> str:
     return combined or "Customer"
 
 
+def _stripped(zoho_contact: Mapping[str, Any], key: str) -> str | None:
+    """Pull a Zoho string field, stripped; return None if missing or empty."""
+    raw = zoho_contact.get(key)
+    if raw is None:
+        return None
+    value = str(raw).strip()
+    return value or None
+
+
 def build_briefing(
     customer: Customer,
     *,
     zoho_contact: Mapping[str, Any],
     qbo_horizon: date,
+    today: date | None = None,
 ) -> tuple[DraftBriefing, MailBriefing]:
     """Render briefings for the drafter and the mailer.
 
@@ -218,12 +257,25 @@ def build_briefing(
     disclosure = _legacy_disclosure(customer.first_known_contact_at, qbo_horizon)
     ltv_label = _format_dollars(customer.ltv_cents) + disclosure
     last_purchase_label = _format_month(customer.last_purchase_at)
+    first_invoice_label = _format_month(customer.first_invoice_at)
+    mobile = _stripped(zoho_contact, "Mobile")
+    phone = _stripped(zoho_contact, "Phone")
+    email = _stripped(zoho_contact, "Email")
 
-    rows: list[tuple[str, str]] = [("lifetime_spend", ltv_label)]
+    # Keys are presentation labels (Title Case); the mailer renders them
+    # verbatim. Earlier snake_case keys were dropped in favour of the
+    # human-readable form per the email-redesign PR.
+    rows: list[tuple[str, str]] = [("Lifetime spend", ltv_label)]
     if last_purchase_label:
-        rows.append(("last_purchase", last_purchase_label))
-    if customer.first_known_contact_at:
-        rows.append(("first_known_contact", customer.first_known_contact_at.strftime("%b %Y")))
+        rows.append(("Last purchase", last_purchase_label))
+    if first_invoice_label:
+        rows.append(("First invoice", first_invoice_label))
+    if mobile:
+        rows.append(("Mobile", mobile))
+    if phone:
+        rows.append(("Phone", phone))
+    if email:
+        rows.append(("Email", email))
 
     draft = DraftBriefing(
         name=name,
@@ -234,5 +286,6 @@ def build_briefing(
         sanitized_notes="",
         source_dollar_amounts=frozenset({_format_dollars(customer.ltv_cents)}),
     )
-    mail = MailBriefing(name=name, rows=tuple(rows))
+    dormancy_label = _humanize_ago(customer.last_purchase_at, today) if today else None
+    mail = MailBriefing(name=name, rows=tuple(rows), dormancy_label=dormancy_label)
     return draft, mail
