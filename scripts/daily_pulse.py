@@ -487,8 +487,12 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
     import anthropic  # noqa: PLC0415  (heavy import, only needed in main)
 
     client = anthropic.Anthropic(api_key=api_key)
-    control_address = os.environ.get("OUTGROW_CONTROL_ADDRESS", "outgrow-control@getlivewire.com")
-    sender_email = os.environ.get("OUTGROW_SENDER_EMAIL", control_address)
+    # GitHub Actions interpolates unset repo variables as empty strings, so
+    # ``dict.get(key, default)`` won't fall through — use ``... or default``.
+    # Same gotcha pattern as ZOHO_CRM_DC (PR #22) and OUTGROW_SMTP_HOST/PORT
+    # (PR #34).
+    control_address = os.environ.get("OUTGROW_CONTROL_ADDRESS") or "outgrow-control@getlivewire.com"
+    sender_email = os.environ.get("OUTGROW_SENDER_EMAIL") or control_address
     today = date.today()
 
     def pulse_id_factory(rep_id: str) -> str:
