@@ -7,6 +7,7 @@ injected as a fake. Recipient allowlist is loaded from the shipped
 
 from __future__ import annotations
 
+from datetime import date
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -14,6 +15,7 @@ import pytest
 
 from pulse.links import verify_action
 from pulse.mailer import (
+    ActionLinks,
     CustomerBriefing,
     RecipientPolicy,
     RepProfile,
@@ -23,6 +25,7 @@ from pulse.mailer import (
     load_recipient_policy,
     make_smtp_sender,
     render_pulse_body,
+    render_pulse_html,
     send_pulse,
     should_cc_owner,
     to_email_message,
@@ -141,7 +144,7 @@ def test_should_not_cc_owner_when_review_exhausted() -> None:
 # ---- build_pulse_email ----------------------------------------------------
 
 
-def _links() -> object:
+def _links() -> ActionLinks:
     return build_action_links(
         secret=SECRET,
         control_address="outgrow-control@getlivewire.com",
@@ -370,3 +373,139 @@ def test_make_smtp_sender_returns_a_reusable_closure(monkeypatch: pytest.MonkeyP
     assert len(_FakeSMTP.instances) == 2
     assert _FakeSMTP.instances[0].calls[-2] == ("send", "a@example.com")
     assert _FakeSMTP.instances[1].calls[-2] == ("send", "b@example.com")
+
+
+# ---- render_pulse_html ------------------------------------------------------
+
+
+def _html_briefing() -> CustomerBriefing:
+    return CustomerBriefing(
+        name="Sarah Whitfield",
+        rows=(
+            ("Lifetime spend", "$184,200"),
+            ("First invoice", "Mar 2018"),
+            ("Mobile", "+15551234567"),
+            ("Email", "sarah@example.com"),
+        ),
+        dormancy_label="4y 3mo ago",
+    )
+
+
+def test_render_pulse_html_includes_headline_and_subhead() -> None:
+    html_body = render_pulse_html(
+        rep_first_name="Henry",
+        briefing=_html_briefing(),
+        draft_text="Hey Sarah — long time.",
+        links=_links(),  # type: ignore[arg-type]
+        today=date(2026, 5, 14),
+    )
+    assert "Reach out to" in html_body
+    assert "Sarah Whitfield" in html_body
+    assert "Last touch: 4y 3mo ago" in html_body
+    assert "Morning Henry" in html_body
+
+
+def test_render_pulse_html_contains_every_briefing_row() -> None:
+    html_body = render_pulse_html(
+        rep_first_name="Henry",
+        briefing=_html_briefing(),
+        draft_text="Hey Sarah.",
+        links=_links(),  # type: ignore[arg-type]
+        today=date(2026, 5, 14),
+    )
+    assert "Lifetime spend" in html_body
+    assert "$184,200" in html_body
+    assert "First invoice" in html_body
+    assert "Mobile" in html_body
+    assert "+15551234567" in html_body
+    assert "Email" in html_body
+
+
+def test_render_pulse_html_includes_draft_text_and_action_links() -> None:
+    links = _links()
+    html_body = render_pulse_html(
+        rep_first_name="Henry",
+        briefing=_html_briefing(),
+        draft_text="Hey Sarah — long time. Worth 15 min?",
+        links=links,  # type: ignore[arg-type]
+        today=date(2026, 5, 14),
+    )
+    assert "Hey Sarah — long time. Worth 15 min?" in html_body
+    # Each action URL's stable prefix (mailto + subject) should land in the
+    # rendered href. The trailing query (token + body) contains ``&`` which
+    # gets HTML-escaped, so we only compare up to the first ``&``.
+    for url in (links.sent_as_is, links.sent_with_edits, links.skip_today):
+        prefix = url.split("&", 1)[0]
+        assert prefix in html_body, f"missing action link prefix: {prefix}"
+
+
+def test_render_pulse_html_escapes_customer_name() -> None:
+    """Names from Zoho can contain <, >, & — must not break the markup."""
+    brief = CustomerBriefing(
+        name="<script>alert(1)</script>",
+        rows=(("Lifetime spend", "$1,000"),),
+        dormancy_label=None,
+    )
+    html_body = render_pulse_html(
+        rep_first_name="Henry",
+        briefing=brief,
+        draft_text="Hey",
+        links=_links(),  # type: ignore[arg-type]
+        today=date(2026, 5, 14),
+    )
+    assert "<script>" not in html_body
+    assert "&lt;script&gt;" in html_body
+
+
+def test_render_pulse_html_skips_subhead_when_dormancy_unknown() -> None:
+    brief = CustomerBriefing(
+        name="Jane Smith",
+        rows=(("Lifetime spend", "$1,000"),),
+        dormancy_label=None,
+    )
+    html_body = render_pulse_html(
+        rep_first_name="Henry",
+        briefing=brief,
+        draft_text="Hey",
+        links=_links(),  # type: ignore[arg-type]
+        today=date(2026, 5, 14),
+    )
+    assert "Last touch:" not in html_body
+
+
+# ---- to_email_message multipart wiring --------------------------------------
+
+
+def test_to_email_message_adds_html_alternative_when_html_body_present() -> None:
+    rep = RepProfile(rep_id="zack", email=ZACK_EMAIL, first_name="Zack", cc_review_remaining=0)
+    pulse = build_pulse_email(
+        pulse_id="p1",
+        rep=rep,
+        briefing=_html_briefing(),
+        draft_text="Hey Sarah.",
+        links=_links(),  # type: ignore[arg-type]
+        policy=_policy(),
+        today=date(2026, 5, 14),
+    )
+    msg = to_email_message(pulse, sender_email="outgrow-control@getlivewire.com")
+    assert msg.is_multipart()
+    plain = msg.get_body(preferencelist=("plain",))
+    html_part = msg.get_body(preferencelist=("html",))
+    assert plain is not None
+    assert html_part is not None
+    assert "Reach out to" in html_part.get_content()
+    assert "Morning Zack" in plain.get_content()
+
+
+def test_to_email_message_plain_only_when_today_omitted() -> None:
+    rep = RepProfile(rep_id="zack", email=ZACK_EMAIL, first_name="Zack", cc_review_remaining=0)
+    pulse = build_pulse_email(
+        pulse_id="p1",
+        rep=rep,
+        briefing=_html_briefing(),
+        draft_text="Hey",
+        links=_links(),  # type: ignore[arg-type]
+        policy=_policy(),
+    )
+    msg = to_email_message(pulse, sender_email="outgrow-control@getlivewire.com")
+    assert not msg.is_multipart()

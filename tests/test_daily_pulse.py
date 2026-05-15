@@ -220,7 +220,9 @@ def test_happy_path_write_sends_email() -> None:
     msg = captured[0]
     assert msg["To"] == ZACK_EMAIL
     assert msg["Cc"] == OWNER_EMAIL  # Zack still in review window (cc_remaining=5)
-    assert "Hey Jane — quick check-in" in msg.get_content()
+    plain = msg.get_body(preferencelist=("plain",))
+    assert plain is not None
+    assert "Hey Jane — quick check-in" in plain.get_content()
 
 
 def test_no_eligible_customer_returns_status() -> None:

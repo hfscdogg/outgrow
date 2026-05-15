@@ -69,6 +69,13 @@ class Customer:
     suppressed: bool = False
     suppression_reason: str | None = None
     last_install_completed_at: date | None = None
+    # Distinct from first_known_contact_at (the earliest signal across Zoho
+    # record-creation, QBO record-creation, and first QBO invoice — used to
+    # decide legacy_bonus). The display layer wants the QBO-specific first
+    # invoice for the "First invoice" row, since the Zoho-record-creation
+    # value is often misleading (record migrated long after the relationship
+    # began). None when the matched QBO customer has no invoices.
+    first_invoice_at: date | None = None
 
 
 @dataclass(frozen=True)

@@ -231,7 +231,7 @@ def test_briefing_renders_basic_fields() -> None:
     assert draft.lifetime_spend_label.startswith("$52,400")
     assert draft.last_purchase_label == "Sep 2024"
     assert mail.name == "Jane Smith"
-    assert ("lifetime_spend", draft.lifetime_spend_label) in mail.rows
+    assert ("Lifetime spend", draft.lifetime_spend_label) in mail.rows
 
 
 def test_briefing_legacy_disclosure_when_pre_qbo_horizon() -> None:
@@ -301,7 +301,7 @@ def test_briefing_omits_last_purchase_row_when_unknown() -> None:
         qbo_horizon=date(2017, 1, 1),
     )
     keys = [k for k, _ in mail.rows]
-    assert "last_purchase" not in keys
+    assert "Last purchase" not in keys
 
 
 def test_briefing_zero_ltv_renders_as_dollar_zero() -> None:
@@ -321,3 +321,93 @@ def test_briefing_million_dollar_ltv_formats_with_commas() -> None:
         qbo_horizon=date(2017, 1, 1),
     )
     assert draft.lifetime_spend_label.startswith("$1,234,567")
+
+
+# ---- HTML-redesign-era fields: first_invoice, contact rows, dormancy_label --
+
+
+def test_briefing_uses_first_invoice_at_not_first_known_contact() -> None:
+    """The display row should come from QBO's first invoice, not the Zoho
+    record-creation date — the latter is misleading for migrated customers.
+    """
+    _, mail = build_briefing(
+        _customer(
+            first_known_contact_at=date(2010, 1, 15),  # ranking signal
+            first_invoice_at=date(2012, 6, 1),  # display signal
+        ),
+        zoho_contact=_zoho(),
+        qbo_horizon=date(2017, 1, 1),
+    )
+    keys = {k: v for k, v in mail.rows}
+    assert keys.get("First invoice") == "Jun 2012"
+
+
+def test_briefing_omits_first_invoice_row_when_absent() -> None:
+    _, mail = build_briefing(
+        _customer(first_invoice_at=None),
+        zoho_contact=_zoho(),
+        qbo_horizon=date(2017, 1, 1),
+    )
+    assert "First invoice" not in [k for k, _ in mail.rows]
+
+
+def test_briefing_includes_mobile_phone_email_rows() -> None:
+    z = _zoho()
+    z["Mobile"] = "+15551234567"
+    z["Phone"] = "+15559876543"
+    z["Email"] = "jane@example.com"
+    _, mail = build_briefing(
+        _customer(),
+        zoho_contact=z,
+        qbo_horizon=date(2017, 1, 1),
+    )
+    rows = dict(mail.rows)
+    assert rows.get("Mobile") == "+15551234567"
+    assert rows.get("Phone") == "+15559876543"
+    assert rows.get("Email") == "jane@example.com"
+
+
+def test_briefing_omits_contact_rows_when_blank_or_missing() -> None:
+    z = _zoho()
+    z["Mobile"] = ""  # blank string — common Zoho export artifact
+    z.pop("Phone", None)
+    _, mail = build_briefing(
+        _customer(),
+        zoho_contact=z,
+        qbo_horizon=date(2017, 1, 1),
+    )
+    keys = [k for k, _ in mail.rows]
+    assert "Mobile" not in keys
+    assert "Phone" not in keys
+
+
+def test_briefing_dormancy_label_set_when_today_provided() -> None:
+    _, mail = build_briefing(
+        _customer(last_purchase_at=date(2022, 1, 1)),
+        zoho_contact=_zoho(),
+        qbo_horizon=date(2017, 1, 1),
+        today=date(2026, 5, 14),
+    )
+    # 4y 4mo ago by approximate math.
+    assert mail.dormancy_label is not None
+    assert mail.dormancy_label.startswith("4y")
+
+
+def test_briefing_dormancy_label_none_when_today_omitted() -> None:
+    _, mail = build_briefing(
+        _customer(),
+        zoho_contact=_zoho(),
+        qbo_horizon=date(2017, 1, 1),
+    )
+    assert mail.dormancy_label is None
+
+
+def test_briefing_dormancy_label_handles_recent_purchase() -> None:
+    _, mail = build_briefing(
+        _customer(last_purchase_at=date(2026, 5, 10)),
+        zoho_contact=_zoho(),
+        qbo_horizon=date(2017, 1, 1),
+        today=date(2026, 5, 14),
+    )
+    # 4 days ago — under the month threshold.
+    assert mail.dormancy_label == "this month"
