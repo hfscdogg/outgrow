@@ -12,10 +12,24 @@ on:
   schedule:
     - cron: "0 11 * * 1-5"  # 07:00 ET during DST; bump to "0 12" in November
 
+# Only one daily-dispatch instance at a time. Without this, the cron and
+# a manual workflow_dispatch firing within seconds of each other would
+# race when committing state/pulse_history.json back to main — the second
+# push would fail with non-fast-forward. ``cancel-in-progress: false`` so
+# we queue rather than killing the in-flight pulse mid-send.
+concurrency:
+  group: daily-dispatch
+  cancel-in-progress: false
+
 jobs:
   dispatch:
     if: ${{ vars.OUTGROW_PAUSED != 'true' }}
     runs-on: ubuntu-latest
+    # ``contents: write`` so the final step can git-push the updated
+    # state/pulse_history.json back to main. Default GITHUB_TOKEN is
+    # used; no PAT needed.
+    permissions:
+      contents: write
     # Sized for production data: Zoho sync ~2m, QBO sync ~9m, orchestrator
     # ~5m (Tier 3 fuzzy match + 2 Anthropic calls). 45m ceiling leaves
     # headroom for growth; revisit if real runs trend above 30m.
@@ -93,4 +107,21 @@ jobs:
             uv run python -m scripts.daily_pulse --write
           else
             uv run python -m scripts.daily_pulse --dry-run
+          fi
+
+      # Persists the orchestrator's pulse-history update back to main so the
+      # next run knows which customers it already pulsed (within the 90-day
+      # suppression window). Runs even on partial failure (one rep failing
+      # shouldn't lose the other rep's history entry).
+      - name: Commit updated pulse history
+        if: always()
+        run: |
+          if [ -n "$(git status --porcelain state/pulse_history.json)" ]; then
+            git config user.name "outgrow-bot"
+            git config user.email "outgrow-bot@users.noreply.github.com"
+            git add state/pulse_history.json
+            git commit -m "chore(pulse): record sent customers $(date -u +%Y-%m-%d)"
+            git push
+          else
+            echo "no pulse history changes; skipping commit"
           fi
