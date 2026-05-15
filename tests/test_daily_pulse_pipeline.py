@@ -387,3 +387,72 @@ def test_run_pipeline_judge_rejection_aborts_send() -> None:
 
     assert results[0].status == PulseStatus.JUDGE_REJECTED
     assert captured == []  # judge blocked the send
+
+
+def _henry_loaded() -> LoadedRep:
+    return LoadedRep(
+        profile=RepProfile(
+            rep_id="henry",
+            email=OWNER_EMAIL,
+            first_name="Henry",
+            cc_review_remaining=0,
+        ),
+        voice={"formality": "casual", "typical_greetings": ["hey"]},
+        zoho_user_id="u_henry",
+        ooo_until=None,
+        paused_until=None,
+    )
+
+
+def test_one_rep_failure_does_not_cancel_the_other() -> None:
+    """Anthropic 500 (or anything else) on Henry must not skip Zack's pulse."""
+
+    class _BlowsUpThenSucceeds:
+        """First .messages.create() call raises; subsequent calls return text.
+
+        We seed it with one exception + one happy draft so the first rep's
+        pulse fails fast and the second rep's pulse goes through.
+        """
+
+        def __init__(self) -> None:
+            self.messages = self  # quack like Anthropic + Anthropic.messages
+            self.calls = 0
+
+        def create(self, **_: object) -> object:
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("simulated upstream blowup")
+            content = [type("_C", (), {"text": "Hey Jane — checking in."})()]
+            return type("_R", (), {"content": content})()
+
+    captured: list[EmailMessage] = []
+    client = _BlowsUpThenSucceeds()
+
+    results = run_pipeline(
+        today=date(2026, 5, 7),
+        reps=[_henry_loaded(), _zack_loaded()],
+        plays=[_play()],
+        ranking_cfg=_ranking_cfg(),
+        drafter_cfg=_drafter_cfg(),  # type: ignore[arg-type]
+        policy=_policy(),
+        judge_profile=_judge_profile(),
+        # Two contacts owned by the two reps, so both have an eligible customer.
+        zoho_contacts=[
+            _zoho_contact(zid="z1", owner="u_henry"),
+            _zoho_contact(zid="z2", owner="u_zack"),
+        ],
+        qbo_customers=[_qbo_customer(qid="q1"), _qbo_customer(qid="q2")],
+        qbo_invoices=[_invoice(qid="q1"), _invoice(qid="q2")],
+        secret=SECRET,
+        control_address="outgrow-control@getlivewire.com",
+        sender_email="outgrow-control@getlivewire.com",
+        anthropic_client=client,
+        smtp_send=captured.append,
+        pulse_id_factory=_make_pid,
+        dry_run=True,
+    )
+
+    assert len(results) == 2
+    statuses = {r.rep_id: r.status for r in results}
+    assert statuses["henry"] == PulseStatus.PIPELINE_ERROR
+    assert statuses["zack"] == PulseStatus.DRAFTED_DRY_RUN
