@@ -456,3 +456,34 @@ def test_one_rep_failure_does_not_cancel_the_other() -> None:
     statuses = {r.rep_id: r.status for r in results}
     assert statuses["henry"] == PulseStatus.PIPELINE_ERROR
     assert statuses["zack"] == PulseStatus.DRAFTED_DRY_RUN
+
+
+def test_recently_pulsed_customer_is_suppressed_end_to_end() -> None:
+    """Passing the customer's id in recently_pulsed_ids should make the
+    pipeline skip them — net result: no_eligible_customer for that rep.
+    """
+    client = _FakeAnthropic([])  # never called — eligibility filter cuts first
+
+    results = run_pipeline(
+        today=date(2026, 5, 7),
+        reps=[_zack_loaded()],
+        plays=[_play()],
+        ranking_cfg=_ranking_cfg(),
+        drafter_cfg=_drafter_cfg(),  # type: ignore[arg-type]
+        policy=_policy(),
+        judge_profile=_judge_profile(),
+        zoho_contacts=[_zoho_contact()],
+        qbo_customers=[_qbo_customer()],
+        qbo_invoices=[_invoice()],
+        secret=SECRET,
+        control_address="outgrow-control@getlivewire.com",
+        sender_email="outgrow-control@getlivewire.com",
+        anthropic_client=client,
+        smtp_send=lambda _: None,
+        pulse_id_factory=_make_pid,
+        dry_run=True,
+        recently_pulsed_ids=frozenset({"z1"}),
+    )
+
+    assert results[0].status == PulseStatus.NO_ELIGIBLE_CUSTOMER
+    assert client.messages.calls == []  # drafter never reached

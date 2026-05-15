@@ -205,6 +205,34 @@ def test_build_customers_skips_when_owner_field_absent() -> None:
     assert customers == []
 
 
+def test_build_customers_marks_recently_pulsed_as_suppressed() -> None:
+    customers = build_customers(
+        zoho_contacts=[_zoho()],
+        qbo_customers=[_qbo()],
+        qbo_invoices=[],
+        match_result=_result(_ms("z1", "q1")),
+        zoho_user_to_rep_id={"u1": "zack"},
+        recently_pulsed_ids=frozenset({"z1"}),
+    )
+    assert len(customers) == 1
+    assert customers[0].suppressed is True
+    assert customers[0].suppression_reason == "recently_pulsed"
+
+
+def test_build_customers_unsuppressed_when_not_in_history() -> None:
+    customers = build_customers(
+        zoho_contacts=[_zoho()],
+        qbo_customers=[_qbo()],
+        qbo_invoices=[],
+        match_result=_result(_ms("z1", "q1")),
+        zoho_user_to_rep_id={"u1": "zack"},
+        recently_pulsed_ids=frozenset({"some-other-id"}),
+    )
+    assert len(customers) == 1
+    assert customers[0].suppressed is False
+    assert customers[0].suppression_reason is None
+
+
 # ---- build_briefing --------------------------------------------------------
 
 

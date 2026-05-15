@@ -54,6 +54,13 @@ from matching.identity import (
 )
 from pipeline.customers import build_briefing, build_customers
 from pipeline.reps import LoadedRep, is_active_today, load_reps, zoho_user_to_rep_id_map
+from pipeline.suppressions import (
+    PulseEntry,
+    append_entries,
+    load_history,
+    recently_pulsed_customer_ids,
+    save_history,
+)
 from pulse.mailer import (
     CustomerBriefing as MailBriefing,
 )
@@ -301,11 +308,16 @@ def run_pipeline(
     smtp_send: SmtpSender,
     pulse_id_factory: PulseIdFactory,
     dry_run: bool = True,
+    recently_pulsed_ids: frozenset[str] = frozenset(),
 ) -> list[PulseRunResult]:
     """End-to-end pipeline for every rep on ``today``.
 
     Skipped reps (OOO / paused) get a ``REP_INACTIVE`` result so the
     workflow log shows the full roster.
+
+    ``recently_pulsed_ids`` are customer IDs the engine has emailed in
+    the suppression window — they get filtered out before ranking, so
+    we don't pester the same customer two weeks in a row.
     """
     import time  # noqa: PLC0415  -- only used for timing logs in this function
 
@@ -345,6 +357,7 @@ def run_pipeline(
         qbo_invoices=qbo_invoices,
         match_result=match_result,
         zoho_user_to_rep_id=user_to_rep,
+        recently_pulsed_ids=recently_pulsed_ids,
     )
     logger.info(
         "built %d customer records after rep_id mapping (%.1fs); play=%s",
@@ -443,8 +456,8 @@ def _smtp_sender_from_env() -> SmtpSender:  # pragma: no cover
     return make_smtp_sender(host=host, port=port, user=user, password=password)
 
 
-# noqa: PLR0911 -- env-validation guard chain at the top, then the run; refactoring just hides it.
-def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR0911
+# noqa: PLR0911,PLR0915 -- env-validation guard chain at the top, then the run; refactoring just hides it.
+def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR0911, PLR0915
     """CLI entry: load configs + caches, run pipeline, print summary."""
     parser = argparse.ArgumentParser(description="Daily Outgrow pulse orchestrator")
     parser.add_argument(
@@ -520,6 +533,10 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR
         smtp_sender = _smtp_sender_from_env()
         logger.info("write mode: pulses will be emailed via SMTP")
 
+    history = load_history()
+    recently_pulsed = recently_pulsed_customer_ids(history, today)
+    logger.info("suppressing %d recently-pulsed customer(s)", len(recently_pulsed))
+
     results = run_pipeline(
         today=today,
         reps=reps,
@@ -538,7 +555,23 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR
         smtp_send=smtp_sender,
         pulse_id_factory=pulse_id_factory,
         dry_run=args.dry_run,
+        recently_pulsed_ids=recently_pulsed,
     )
+
+    # Only SENT pulses go into history — dry-run drafts never reached the
+    # customer, so the suppression window doesn't apply. Save unconditionally
+    # so pruned-only updates still get committed by the workflow.
+    new_entries = [
+        PulseEntry(
+            customer_id=r.customer_id or "",
+            rep_id=r.rep_id,
+            pulse_id=r.pulse_id or "",
+            date=today,
+        )
+        for r in results
+        if r.status == PulseStatus.SENT and r.customer_id and r.pulse_id
+    ]
+    save_history(append_entries(history, new_entries, today=today))
 
     _print_dry_run_report(results)
     # Surface per-rep pipeline errors as a non-zero exit so GitHub Actions

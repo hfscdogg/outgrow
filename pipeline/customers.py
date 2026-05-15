@@ -123,6 +123,7 @@ def build_customers(
     qbo_invoices: Sequence[Mapping[str, Any]],
     match_result: MatchResult,
     zoho_user_to_rep_id: Mapping[str, str],
+    recently_pulsed_ids: frozenset[str] = frozenset(),
 ) -> list[Customer]:
     """Project auto-matched pairs into ranked-engine ``Customer`` records.
 
@@ -131,6 +132,12 @@ def build_customers(
     * the Zoho contact has no Owner field (unassigned in Zoho)
     * the Zoho Owner isn't mapped to an internal rep (unknown rep, owner
       triages by adding a ``zoho_user_id:`` to a rep YAML)
+
+    ``recently_pulsed_ids`` are customer IDs the engine has emailed in the
+    last ``DEFAULT_WINDOW_DAYS`` (see ``pipeline/suppressions.py``). They
+    surface as ``suppressed=True, suppression_reason="recently_pulsed"``
+    so the ranking layer's eligibility filter rejects them — same
+    machinery as opted-out / open-ticket suppressions in Phase 2.
 
     No suppressions are applied here — that's the suppressions table
     (Phase 2: open Desk tickets, active Zoho deals, opted-out, etc.).
@@ -160,6 +167,7 @@ def build_customers(
             _qbo_created_date(qbo),
             first_invoice,
         )
+        suppressed = ms.zoho_id in recently_pulsed_ids
         customers.append(
             Customer(
                 id=ms.zoho_id,
@@ -169,6 +177,8 @@ def build_customers(
                 first_known_contact_at=first_known,
                 rep_match_confidence=ms.score,
                 first_invoice_at=first_invoice,
+                suppressed=suppressed,
+                suppression_reason="recently_pulsed" if suppressed else None,
             )
         )
     return customers
