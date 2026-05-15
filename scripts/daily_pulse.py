@@ -123,6 +123,7 @@ class PulseStatus(StrEnum):
     NO_ELIGIBLE_CUSTOMER = "no_eligible_customer"
     JUDGE_REJECTED = "judge_rejected"
     REP_INACTIVE = "rep_inactive"
+    PIPELINE_ERROR = "pipeline_error"
 
 
 @dataclass(frozen=True)
@@ -362,26 +363,38 @@ def run_pipeline(
             )
             continue
         t_rep = time.monotonic()
-        result = run_one_pulse(
-            rep=rep.profile,
-            candidates=customers,
-            play=play,
-            ranking_cfg=ranking_cfg,
-            drafter_cfg=drafter_cfg,
-            voice=rep.voice,
-            play_brief=play_brief,
-            today=today,
-            briefing_for=briefing_for,
-            pulse_id=pulse_id_factory(rep.profile.rep_id),
-            secret=secret,
-            control_address=control_address,
-            sender_email=sender_email,
-            policy=policy,
-            anthropic_client=anthropic_client,
-            smtp_send=smtp_send,
-            judge_profile=judge_profile,
-            dry_run=dry_run,
-        )
+        try:
+            result = run_one_pulse(
+                rep=rep.profile,
+                candidates=customers,
+                play=play,
+                ranking_cfg=ranking_cfg,
+                drafter_cfg=drafter_cfg,
+                voice=rep.voice,
+                play_brief=play_brief,
+                today=today,
+                briefing_for=briefing_for,
+                pulse_id=pulse_id_factory(rep.profile.rep_id),
+                secret=secret,
+                control_address=control_address,
+                sender_email=sender_email,
+                policy=policy,
+                anthropic_client=anthropic_client,
+                smtp_send=smtp_send,
+                judge_profile=judge_profile,
+                dry_run=dry_run,
+            )
+        except Exception:  # noqa: BLE001 -- isolating one rep's failure so the others still send
+            # One rep's pulse failing (Anthropic rate limit, SMTP burp, etc.)
+            # must NOT cancel the remaining reps. Log the traceback, append a
+            # PIPELINE_ERROR result, and keep going. The non-zero exit-code
+            # signal that GitHub Actions surfaces still happens at the end if
+            # any rep errored — see ``main()`` below.
+            logger.exception("rep=%s pipeline raised; skipping send", rep.profile.rep_id)
+            results.append(
+                PulseRunResult(rep_id=rep.profile.rep_id, status=PulseStatus.PIPELINE_ERROR)
+            )
+            continue
         logger.info(
             "rep=%s status=%s %s model=%s (%.1fs)",
             rep.profile.rep_id,
@@ -430,7 +443,8 @@ def _smtp_sender_from_env() -> SmtpSender:  # pragma: no cover
     return make_smtp_sender(host=host, port=port, user=user, password=password)
 
 
-def main(argv: list[str] | None = None) -> int:  # pragma: no cover
+# noqa: PLR0911 -- env-validation guard chain at the top, then the run; refactoring just hides it.
+def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR0911
     """CLI entry: load configs + caches, run pipeline, print summary."""
     parser = argparse.ArgumentParser(description="Daily Outgrow pulse orchestrator")
     parser.add_argument(
@@ -527,6 +541,13 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
     )
 
     _print_dry_run_report(results)
+    # Surface per-rep pipeline errors as a non-zero exit so GitHub Actions
+    # marks the run as failed (and the email-on-failure notification fires).
+    # The other reps' pulses still went out — we just want the operator to
+    # notice and investigate the failed one.
+    if any(r.status == PulseStatus.PIPELINE_ERROR for r in results):
+        logger.error("one or more reps failed; see traceback(s) above")
+        return 2
     return 0
 
 
