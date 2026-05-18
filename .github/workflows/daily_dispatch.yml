@@ -1,16 +1,23 @@
 name: daily-dispatch
 
-# Sends one Outgrow pulse per rep at 07:00 ET on weekdays. The cron line
-# below uses 11:00 UTC, which is 07:00 EDT (UTC-4) — correct for the
+# Sends one Outgrow pulse per rep at 07:07 ET on weekdays. The cron line
+# below uses 11:07 UTC, which is 07:07 EDT (UTC-4) — correct for the
 # May-Oct pilot window. Revisit at the next DST flip: in EST (UTC-5),
-# 07:00 ET is 12:00 UTC, so flip the hour to "0 12 * * 1-5" each November.
+# 07:07 ET is 12:07 UTC, so flip the hour to "7 12 * * 1-5" each November.
 # `vars.OUTGROW_PAUSED=true` keeps the job from running even when triggered
 # manually; flip it to `false` only after a green dry-run review.
+#
+# Why :07 instead of :00? GitHub Actions warns: "the schedule event can
+# be delayed during periods of high loads of GitHub Actions workflow runs.
+# High load times include the start of every hour. If the load is
+# sufficiently high enough, some queued jobs may be dropped." The
+# top-of-hour cron was getting dropped silently — :07 lands after the
+# load spike. (See May 18 2026 missed run.)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 11 * * 1-5"  # 07:00 ET during DST; bump to "0 12" in November
+    - cron: "7 11 * * 1-5"  # 07:07 ET during DST; bump to "7 12" in November
 
 # Only one daily-dispatch instance at a time. Without this, the cron and
 # a manual workflow_dispatch firing within seconds of each other would
