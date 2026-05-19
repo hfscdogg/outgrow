@@ -59,6 +59,7 @@ from pipeline.suppressions import (
     append_entries,
     load_history,
     recently_pulsed_customer_ids,
+    reps_pulsed_today,
     save_history,
 )
 from pulse.mailer import (
@@ -131,6 +132,7 @@ class PulseStatus(StrEnum):
     JUDGE_REJECTED = "judge_rejected"
     REP_INACTIVE = "rep_inactive"
     PIPELINE_ERROR = "pipeline_error"
+    ALREADY_PULSED_TODAY = "already_pulsed_today"
 
 
 @dataclass(frozen=True)
@@ -309,6 +311,7 @@ def run_pipeline(
     pulse_id_factory: PulseIdFactory,
     dry_run: bool = True,
     recently_pulsed_ids: frozenset[str] = frozenset(),
+    reps_already_pulsed_today: frozenset[str] = frozenset(),
 ) -> list[PulseRunResult]:
     """End-to-end pipeline for every rep on ``today``.
 
@@ -318,6 +321,9 @@ def run_pipeline(
     ``recently_pulsed_ids`` are customer IDs the engine has emailed in
     the suppression window — they get filtered out before ranking, so
     we don't pester the same customer two weeks in a row.
+
+    ``reps_already_pulsed_today`` are rep_ids with an entry recorded
+    for ``today`` already — backup cron triggers see them and no-op.
     """
     import time  # noqa: PLC0415  -- only used for timing logs in this function
 
@@ -369,6 +375,18 @@ def run_pipeline(
 
     results: list[PulseRunResult] = []
     for rep in reps:
+        if rep.profile.rep_id in reps_already_pulsed_today:
+            logger.info(
+                "rep=%s status=ALREADY_PULSED_TODAY (backup cron, no-op)",
+                rep.profile.rep_id,
+            )
+            results.append(
+                PulseRunResult(
+                    rep_id=rep.profile.rep_id,
+                    status=PulseStatus.ALREADY_PULSED_TODAY,
+                )
+            )
+            continue
         if not is_active_today(rep, today):
             logger.info("rep=%s status=REP_INACTIVE (ooo/paused)", rep.profile.rep_id)
             results.append(
@@ -535,7 +553,12 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR
 
     history = load_history()
     recently_pulsed = recently_pulsed_customer_ids(history, today)
-    logger.info("suppressing %d recently-pulsed customer(s)", len(recently_pulsed))
+    already_pulsed_today = reps_pulsed_today(history, today)
+    logger.info(
+        "suppressing %d recently-pulsed customer(s); %d rep(s) already pulsed today",
+        len(recently_pulsed),
+        len(already_pulsed_today),
+    )
 
     results = run_pipeline(
         today=today,
@@ -556,6 +579,7 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR
         pulse_id_factory=pulse_id_factory,
         dry_run=args.dry_run,
         recently_pulsed_ids=recently_pulsed,
+        reps_already_pulsed_today=already_pulsed_today,
     )
 
     # Only SENT pulses go into history — dry-run drafts never reached the
