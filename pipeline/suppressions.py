@@ -76,6 +76,17 @@ def recently_pulsed_customer_ids(
     return frozenset(e.customer_id for e in entries if e.date >= cutoff)
 
 
+def reps_pulsed_today(entries: Iterable[PulseEntry], today: date) -> frozenset[str]:
+    """Return rep_ids that already have a recorded pulse for ``today``.
+
+    Used by the orchestrator for same-day idempotency: GitHub Actions
+    scheduled triggers are unreliable enough that we register multiple
+    cron entries per morning. If the first trigger succeeded, the
+    second/third must no-op cleanly — that's what this set powers.
+    """
+    return frozenset(e.rep_id for e in entries if e.date == today)
+
+
 def append_entries(
     existing: Iterable[PulseEntry],
     new: Iterable[PulseEntry],

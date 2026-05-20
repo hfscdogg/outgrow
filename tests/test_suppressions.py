@@ -18,6 +18,7 @@ from pipeline.suppressions import (
     append_entries,
     load_history,
     recently_pulsed_customer_ids,
+    reps_pulsed_today,
     save_history,
 )
 
@@ -56,6 +57,36 @@ def test_recently_pulsed_dedupes_repeat_customers() -> None:
         _entry(customer_id="c1", pulse_id="p2", d=date(2026, 5, 1)),
     ]
     assert recently_pulsed_customer_ids(entries, today) == frozenset({"c1"})
+
+
+# ---- reps_pulsed_today ------------------------------------------------------
+
+
+def test_reps_pulsed_today_returns_only_todays_rep_ids() -> None:
+    today = date(2026, 5, 19)
+    entries = [
+        _entry(rep_id="henry", d=today),
+        _entry(rep_id="zack", d=date(2026, 5, 18)),  # yesterday — not today
+        _entry(rep_id="alice", d=today),
+    ]
+    assert reps_pulsed_today(entries, today) == frozenset({"henry", "alice"})
+
+
+def test_reps_pulsed_today_empty_when_no_entries_today() -> None:
+    entries = [_entry(rep_id="henry", d=date(2026, 5, 18))]
+    assert reps_pulsed_today(entries, date(2026, 5, 19)) == frozenset()
+
+
+def test_reps_pulsed_today_dedupes_same_rep() -> None:
+    """A rep with multiple entries today (shouldn't happen, but defensive)
+    still appears as a single ID in the set.
+    """
+    today = date(2026, 5, 19)
+    entries = [
+        _entry(rep_id="henry", customer_id="c1", d=today),
+        _entry(rep_id="henry", customer_id="c2", d=today),
+    ]
+    assert reps_pulsed_today(entries, today) == frozenset({"henry"})
 
 
 # ---- append_entries ---------------------------------------------------------

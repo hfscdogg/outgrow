@@ -487,3 +487,32 @@ def test_recently_pulsed_customer_is_suppressed_end_to_end() -> None:
 
     assert results[0].status == PulseStatus.NO_ELIGIBLE_CUSTOMER
     assert client.messages.calls == []  # drafter never reached
+
+
+def test_rep_already_pulsed_today_is_skipped_with_idempotency_status() -> None:
+    """Backup cron triggers (multiple per morning to dodge GH-Actions
+    scheduling drops) must no-op cleanly if the primary already sent.
+    """
+    client = _FakeAnthropic([])  # never called — idempotency short-circuits before drafter
+    results = run_pipeline(
+        today=date(2026, 5, 7),
+        reps=[_zack_loaded()],
+        plays=[_play()],
+        ranking_cfg=_ranking_cfg(),
+        drafter_cfg=_drafter_cfg(),  # type: ignore[arg-type]
+        policy=_policy(),
+        judge_profile=_judge_profile(),
+        zoho_contacts=[_zoho_contact()],
+        qbo_customers=[_qbo_customer()],
+        qbo_invoices=[_invoice()],
+        secret=SECRET,
+        control_address="outgrow-control@getlivewire.com",
+        sender_email="outgrow-control@getlivewire.com",
+        anthropic_client=client,
+        smtp_send=lambda _: None,
+        pulse_id_factory=_make_pid,
+        dry_run=True,
+        reps_already_pulsed_today=frozenset({"zack"}),
+    )
+    assert results[0].status == PulseStatus.ALREADY_PULSED_TODAY
+    assert client.messages.calls == []
