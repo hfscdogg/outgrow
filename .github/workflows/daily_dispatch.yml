@@ -1,23 +1,33 @@
 name: daily-dispatch
 
-# Sends one Outgrow pulse per rep at ~07:13 ET on weekdays. Three cron
-# triggers across a 1-hour window because GitHub Actions silently drops
-# scheduled runs during high-load periods (witnessed May 18 + May 19,
-# 2026, both dropped). Same-day idempotency in the orchestrator (see
-# pipeline/suppressions.py::reps_pulsed_today) means the second and
-# third triggers no-op cleanly if the first succeeded.
+# Sends one Outgrow pulse per rep at ~07:13 ET on weekdays.
 #
-# Triggers in UTC; ET column is during DST (UTC-4). At the November DST
-# flip the ET shifts by an hour — change "11"/"12" to "12"/"13".
+# PRIMARY TRIGGER: repository_dispatch (event_type "daily-pulse"), fired
+# by an external scheduler (cron-job.org) hitting the GitHub dispatch
+# API. GitHub's own `schedule` event proved unreliable — every trigger
+# was silently dropped May 19 + May 20 2026, including a three-cron
+# spread. repository_dispatch is an explicit API call GitHub processes
+# immediately, so it doesn't get dropped. Setup: docs/phase1/external_scheduler.md
+#
+# FALLBACK TRIGGERS: the `schedule` block below is kept as a no-cost
+# tertiary safety net (it occasionally works) and `workflow_dispatch`
+# is the manual backstop. Same-day idempotency in the orchestrator (see
+# pipeline/suppressions.py::reps_pulsed_today) means a fallback firing
+# after the primary already sent no-ops cleanly.
+#
+# Schedule triggers in UTC; ET column is during DST (UTC-4). At the
+# November DST flip change "11"/"12" to "12"/"13".
 #
 #   11:13 UTC = 07:13 ET (primary)
-#   11:43 UTC = 07:43 ET (30-min backup if primary dropped)
-#   12:13 UTC = 08:13 ET (last-chance, ~1h after primary)
+#   11:43 UTC = 07:43 ET (30-min backup)
+#   12:13 UTC = 08:13 ET (last-chance)
 #
-# `vars.OUTGROW_PAUSED=true` keeps all three triggers from running.
+# `vars.OUTGROW_PAUSED=true` keeps every trigger from running.
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [daily-pulse]
   schedule:
     - cron: "13 11 * * 1-5"
     - cron: "43 11 * * 1-5"
