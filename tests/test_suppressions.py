@@ -152,3 +152,63 @@ def test_save_writes_schema_version(tmp_path: Path) -> None:
     save_history([], path)
     payload = json.loads(path.read_text())
     assert payload["version"] == SCHEMA_VERSION
+
+
+# ---- action-field roundtrip (Phase 2 inbox poller schema) -----------------
+
+
+def test_pulse_entry_omits_action_fields_when_none(tmp_path: Path) -> None:
+    """Entries without an action keep the JSON small (one entry per day per
+    rep × 90-day window stays well under a KB).
+    """
+    path = tmp_path / "pulse_history.json"
+    save_history([_entry()], path)
+    payload = json.loads(path.read_text())
+    entry = payload["entries"][0]
+    assert "action" not in entry
+    assert "action_at" not in entry
+    assert "edited_text" not in entry
+    assert "skip_reason" not in entry
+
+
+def test_pulse_entry_persists_action_fields_when_set(tmp_path: Path) -> None:
+    entry = _entry().with_action(
+        action="edited",
+        action_at=date(2026, 5, 22),
+        edited_text="Hey Drew — long time.",
+    )
+    path = tmp_path / "pulse_history.json"
+    save_history([entry], path)
+    loaded = load_history(path)
+    assert loaded[0].action == "edited"
+    assert loaded[0].action_at == date(2026, 5, 22)
+    assert loaded[0].edited_text == "Hey Drew — long time."
+    assert loaded[0].skip_reason is None
+
+
+def test_pulse_entry_with_action_returns_new_frozen_copy() -> None:
+    """``with_action`` is a functional update — original stays unchanged
+    (PulseEntry is frozen, so accidental in-place mutation would crash)."""
+    original = _entry()
+    updated = original.with_action(
+        action="sent",
+        action_at=date(2026, 5, 22),
+    )
+    assert original.action is None
+    assert updated.action == "sent"
+    assert updated.action_at == date(2026, 5, 22)
+    # All non-action fields preserved.
+    assert updated.customer_id == original.customer_id
+    assert updated.rep_id == original.rep_id
+    assert updated.pulse_id == original.pulse_id
+    assert updated.date == original.date
+
+
+def test_pulse_entry_with_action_skip_reason() -> None:
+    entry = _entry().with_action(
+        action="skipped",
+        action_at=date(2026, 5, 22),
+        skip_reason="On vacation",
+    )
+    assert entry.skip_reason == "On vacation"
+    assert entry.edited_text is None
