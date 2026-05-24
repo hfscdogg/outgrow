@@ -11,13 +11,19 @@
       "customer_id": "176704000264849041",
       "rep_id": "zack",
       "pulse_id": "2026-05-18-zack",
-      "date": "2026-05-18"
+      "date": "2026-05-18",
+      "action": "edited",
+      "action_at": "2026-05-18",
+      "edited_text": "Hey Drew, Henry Clifford here (Livewire), hope the system is treating you\r\nwell. let me know if you need anything\u2026"
     },
     {
       "customer_id": "176704000000069274",
       "rep_id": "henry",
       "pulse_id": "2026-05-20-henry",
-      "date": "2026-05-20"
+      "date": "2026-05-20",
+      "action": "edited",
+      "action_at": "2026-05-20",
+      "edited_text": "Hey Page! Just thought I'd check in.\r\nHope your system is working well."
     },
     {
       "customer_id": "176704000197313161",
@@ -29,19 +35,27 @@
       "customer_id": "176704000000069728",
       "rep_id": "henry",
       "pulse_id": "2026-05-21-henry",
-      "date": "2026-05-21"
+      "date": "2026-05-21",
+      "action": "sent",
+      "action_at": "2026-05-21"
     },
     {
       "customer_id": "176704000239833301",
       "rep_id": "zack",
       "pulse_id": "2026-05-21-zack",
-      "date": "2026-05-21"
+      "date": "2026-05-21",
+      "action": "edited",
+      "action_at": "2026-05-21",
+      "edited_text": "Hey Brad! Hope all is well. How's everything going with the conference room\r\ntech at the ECE office? Happy to help if you ever need anything, let me\r\nknow!"
     },
     {
       "customer_id": "176704000000064312",
       "rep_id": "henry",
       "pulse_id": "2026-05-22-henry",
-      "date": "2026-05-22"
+      "date": "2026-05-22",
+      "action": "edited",
+      "action_at": "2026-05-22",
+      "edited_text": "Hey David!\r\n\r\nJust checking in and hope your system is treating you well. let me know if\r\nyou need anything.\r\n\r\n- Henry\r\n\r\n\r\n\r\nHENRY CLIFFORD | CEO\r\nOffice: 804-937-9001\r\nEmail: henry@getlivewire.com\r\n\r\nNEED SERVICE? BOOK ONLINE HERE! <https://www.getlivewire.com/bookings/>\r\nBOOK AN APPOINTMENT <https://calendar.app.google/ARAq8nqA3CNvQPhJ6> *WITH\r\nME*"
     },
     {
       "customer_id": "176704000280853054",
