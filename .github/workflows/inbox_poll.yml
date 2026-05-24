@@ -1,0 +1,75 @@
+name: inbox-poll
+
+# Polls Gmail's `+outgrow` label for action replies (SENT / EDITED /
+# SKIPPED / REASSIGN), verifies their HMAC tokens, and updates
+# state/pulse_history.json with what each rep did.
+#
+# PRIMARY TRIGGER: repository_dispatch (event_type "inbox-poll") fired
+# by cron-job.org hourly during business hours. See
+# docs/phase2/gmail_oauth_setup.md for setup.
+#
+# Idempotent by design — each processed Gmail message gets the
+# "OutgrowProcessed" label and is skipped on subsequent polls. No
+# state corruption if multiple polls fire close together; the same
+# action is applied twice with the same result.
+#
+# `vars.OUTGROW_PAUSED=true` keeps this from running.
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [inbox-poll]
+
+# Serialize polls so two near-simultaneous triggers don't race on the
+# git push of pulse_history.json. cancel-in-progress: false because
+# we'd rather queue than kill a poll that already fetched messages.
+concurrency:
+  group: inbox-poll
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    if: ${{ vars.OUTGROW_PAUSED != 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # for the final pulse_history.json commit
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install project
+        run: |
+          uv venv --python 3.12
+          uv pip install -e ".[dev]"
+
+      - name: Poll Gmail + apply actions
+        env:
+          OUTGROW_HMAC_SECRET: ${{ secrets.OUTGROW_HMAC_SECRET }}
+          OUTGROW_PAUSED: ${{ vars.OUTGROW_PAUSED }}
+          OUTGROW_GMAIL_CLIENT_ID: ${{ secrets.OUTGROW_GMAIL_CLIENT_ID }}
+          OUTGROW_GMAIL_CLIENT_SECRET: ${{ secrets.OUTGROW_GMAIL_CLIENT_SECRET }}
+          OUTGROW_GMAIL_REFRESH_TOKEN: ${{ secrets.OUTGROW_GMAIL_REFRESH_TOKEN }}
+          OUTGROW_GMAIL_USER: ${{ secrets.OUTGROW_GMAIL_USER }}
+          OUTGROW_INBOX_LABEL: ${{ vars.OUTGROW_INBOX_LABEL }}
+        run: uv run python -m scripts.inbox_poll
+
+      - name: Commit updated pulse history
+        if: always()
+        run: |
+          if [ -n "$(git status --porcelain state/pulse_history.json)" ]; then
+            git config user.name "outgrow-bot"
+            git config user.email "outgrow-bot@users.noreply.github.com"
+            git add state/pulse_history.json
+            git commit -m "chore(inbox): record rep actions $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          else
+            echo "no action updates; skipping commit"
+          fi

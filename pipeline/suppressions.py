@@ -36,22 +36,71 @@ class PulseEntry:
     rep_id: str
     pulse_id: str
     date: date
+    # Optional action fields — populated by the inbox poller when the rep
+    # taps an action button on the morning pulse email. Absent until that
+    # round-trip completes (which can be hours or never).
+    action: str | None = None  # one of pulse.links.KNOWN_ACTIONS
+    action_at: date | None = None
+    edited_text: str | None = None
+    skip_reason: str | None = None
 
     def to_json(self) -> dict[str, str]:
-        return {
+        out: dict[str, str] = {
             "customer_id": self.customer_id,
             "rep_id": self.rep_id,
             "pulse_id": self.pulse_id,
             "date": self.date.isoformat(),
         }
+        # Omit None fields to keep the JSON diff small for entries the rep
+        # hasn't acted on yet.
+        if self.action is not None:
+            out["action"] = self.action
+        if self.action_at is not None:
+            out["action_at"] = self.action_at.isoformat()
+        if self.edited_text is not None:
+            out["edited_text"] = self.edited_text
+        if self.skip_reason is not None:
+            out["skip_reason"] = self.skip_reason
+        return out
 
     @classmethod
     def from_json(cls, raw: dict[str, str]) -> PulseEntry:
+        action_at_raw = raw.get("action_at")
         return cls(
             customer_id=str(raw["customer_id"]),
             rep_id=str(raw["rep_id"]),
             pulse_id=str(raw["pulse_id"]),
             date=date.fromisoformat(str(raw["date"])),
+            action=str(raw["action"]) if raw.get("action") else None,
+            action_at=date.fromisoformat(str(action_at_raw)) if action_at_raw else None,
+            edited_text=str(raw["edited_text"]) if raw.get("edited_text") else None,
+            skip_reason=str(raw["skip_reason"]) if raw.get("skip_reason") else None,
+        )
+
+    def with_action(
+        self,
+        *,
+        action: str,
+        action_at: date,
+        edited_text: str | None = None,
+        skip_reason: str | None = None,
+    ) -> PulseEntry:
+        """Return a copy with the action fields populated.
+
+        Frozen dataclass + functional update — the inbox poller calls this
+        when a verified reply lands for this pulse_id. If ``action`` is
+        already set, the new value wins (idempotent retries are safe, and
+        a rep changing their mind mid-day is recorded as their final answer).
+        """
+        return PulseEntry(
+            customer_id=self.customer_id,
+            rep_id=self.rep_id,
+            pulse_id=self.pulse_id,
+            date=self.date,
+            action=action,
+            action_at=action_at,
+            edited_text=edited_text,
+            skip_reason=skip_reason,
         )
 
 
