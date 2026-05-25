@@ -18,7 +18,7 @@ jobs:
       QBO_SANDBOX_REFRESH_TOKEN: ${{ secrets.QBO_SANDBOX_REFRESH_TOKEN }}
       QBO_SANDBOX_REALM_ID: ${{ secrets.QBO_SANDBOX_REALM_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v4
         with:
           version: "latest"
