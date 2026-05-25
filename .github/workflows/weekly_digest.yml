@@ -1,0 +1,79 @@
+name: weekly-digest
+
+# Emails each rep a Monday-morning recap of last Mon–Fri's pulses:
+# count, action breakdown, customers touched, YTD totals.
+#
+# PRIMARY TRIGGER: repository_dispatch (event_type "weekly-digest"),
+# fired by cron-job.org Monday ~07:30 ET — after the daily pulse goes
+# out at 07:13, so the rep already opened today's pulse and is now
+# greeted by last week's recap.
+#
+# FALLBACK TRIGGERS: `schedule` is a no-cost tertiary (GH-Actions cron
+# is unreliable per docs/phase1/external_scheduler.md), and
+# `workflow_dispatch` is the manual backstop.
+#
+# Runs a Zoho-only sync first to populate the contacts cache (needed
+# for customer name lookups). Skips QBO — the digest doesn't need
+# invoice/customer data, and Zoho contacts alone are ~2m vs the full
+# ~9m daily-dispatch.
+#
+# `vars.OUTGROW_PAUSED=true` keeps this from running.
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [weekly-digest]
+  schedule:
+    # 11:30 UTC = 07:30 EDT on Mondays. November DST flip: bump to 12:30.
+    - cron: "30 11 * * 1"
+
+concurrency:
+  group: weekly-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    if: ${{ vars.OUTGROW_PAUSED != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install project
+        run: |
+          uv venv --python 3.12
+          uv pip install -e ".[dev]"
+
+      - name: Sync — Zoho CRM (read-only)
+        env:
+          ZOHO_CRM_REFRESH_TOKEN: ${{ secrets.ZOHO_CRM_REFRESH_TOKEN }}
+          ZOHO_CRM_CLIENT_ID: ${{ secrets.ZOHO_CRM_CLIENT_ID }}
+          ZOHO_CRM_CLIENT_SECRET: ${{ secrets.ZOHO_CRM_CLIENT_SECRET }}
+          ZOHO_CRM_DC: ${{ vars.ZOHO_CRM_DC }}
+        run: uv run python -m sync.zoho_crm
+
+      - name: Build + send weekly digests
+        env:
+          OUTGROW_PAUSED: ${{ vars.OUTGROW_PAUSED }}
+          OUTGROW_SENDER_EMAIL: ${{ vars.OUTGROW_SENDER_EMAIL }}
+          OUTGROW_CONTROL_ADDRESS: ${{ vars.OUTGROW_CONTROL_ADDRESS }}
+          OUTGROW_SMTP_HOST: ${{ vars.OUTGROW_SMTP_HOST }}
+          OUTGROW_SMTP_PORT: ${{ vars.OUTGROW_SMTP_PORT }}
+          OUTGROW_SMTP_USER: ${{ secrets.OUTGROW_SMTP_USER }}
+          OUTGROW_SMTP_PASS: ${{ secrets.OUTGROW_SMTP_PASS }}
+        # Same OUTGROW_WRITE_MODE toggle as the daily pulse — "true" sends,
+        # absent/false leaves the digest in dry-run for testing.
+        run: |
+          if [ "${{ vars.OUTGROW_WRITE_MODE }}" = "true" ]; then
+            uv run python -m scripts.weekly_digest --write
+          else
+            uv run python -m scripts.weekly_digest --dry-run
+          fi
