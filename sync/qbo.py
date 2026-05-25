@@ -37,6 +37,7 @@ import base64
 import json
 import logging
 import os
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -342,6 +343,22 @@ def update_github_actions_secret(
         raise RuntimeError(f"GitHub secret update returned status {put_status}")
 
 
+def _emit_gha_annotation(level: str, title: str, message: str) -> None:
+    """Print a GitHub Actions workflow command so the UI surfaces the message
+    as a yellow warning / red error annotation in the run summary.
+
+    Outside GitHub Actions (local CLI, tests) the line is a harmless print
+    that gets logged alongside the regular log output. Gated on
+    ``GITHUB_ACTIONS=true`` so local stdout stays clean.
+    """
+    if os.environ.get("GITHUB_ACTIONS", "").lower() != "true":
+        return
+    # GH Actions workflow-command syntax: ::level title=foo::message
+    # Newlines in message must be URL-encoded as %0A.
+    safe_message = message.replace("\n", "%0A")
+    print(f"::{level} title={title}::{safe_message}", file=sys.stdout, flush=True)
+
+
 def maybe_persist_refresh_token(
     *,
     new_token: str,
@@ -361,19 +378,33 @@ def maybe_persist_refresh_token(
     On API failure: log + return ``False`` rather than raise. The current
     sync's access token already worked; the next run will surface a stale
     token via 400 ``invalid_grant`` on its own refresh.
+
+    Both skip-on-config and API-failure paths emit a GitHub Actions
+    workflow annotation in addition to the structured log so the rotation
+    chain breaking is visible in the run summary — not just buried in the
+    log scroll. This is the failure mode that lost a day's pulse on May 24.
     """
     if new_token == old_token:
         return False
     if not pat or not repo:
-        logging.getLogger(__name__).warning(
+        msg = (
             "QBO refresh token rotated but persistence skipped: "
-            "GH_PAT_ROTATE_SECRETS or GITHUB_REPOSITORY not set."
+            "GH_PAT_ROTATE_SECRETS or GITHUB_REPOSITORY not set. The next "
+            "run will fail with invalid_grant once Intuit's 24h grace "
+            "expires — re-mint GH_PAT_ROTATE_SECRETS to restore the chain."
         )
+        logging.getLogger(__name__).warning(msg)
+        _emit_gha_annotation("warning", "QBO token rotation skipped", msg)
         return False
     try:
         update_github_actions_secret(repo=repo, name=secret_name, value=new_token, pat=pat)
     except Exception as e:  # noqa: BLE001  -- best-effort, log and continue
-        logging.getLogger(__name__).error("Failed to persist rotated QBO token: %s", e)
+        msg = (
+            f"Failed to persist rotated QBO token to secret {secret_name}: {e}. "
+            "Next run will fail with invalid_grant after Intuit's 24h grace expires."
+        )
+        logging.getLogger(__name__).error(msg)
+        _emit_gha_annotation("error", "QBO token rotation failed", msg)
         return False
     logging.getLogger(__name__).info(
         "Persisted rotated QBO refresh token to GitHub Actions secret %s.", secret_name
