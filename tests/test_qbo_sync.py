@@ -421,6 +421,51 @@ def test_persist_swallows_api_failure(monkeypatch, caplog) -> None:
     assert any("Failed to persist" in rec.message for rec in caplog.records)
 
 
+def test_persist_emits_gha_warning_annotation_when_pat_missing(monkeypatch, capsys) -> None:
+    """Skip-on-missing-PAT must print a ::warning workflow command so the
+    GH Actions UI shows the yellow annotation in the run summary.
+
+    This is the failure mode that ate a day's pulse on May 24 — silent
+    decay until invalid_grant hits 24h later. The annotation is what
+    surfaces the problem before the grace expires.
+    """
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    qbo.maybe_persist_refresh_token(new_token="RT-new", old_token="RT-old", repo="o/r", pat=None)
+    captured = capsys.readouterr()
+    assert "::warning title=QBO token rotation skipped::" in captured.out
+
+
+def test_persist_emits_gha_error_annotation_on_api_failure(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+
+    def boom(**_kw):
+        raise RuntimeError("github 503")
+
+    monkeypatch.setattr(qbo, "update_github_actions_secret", boom)
+    qbo.maybe_persist_refresh_token(
+        new_token="RT-new", old_token="RT-old", repo="o/r", pat="ghp_xxx"
+    )
+    captured = capsys.readouterr()
+    assert "::error title=QBO token rotation failed::" in captured.out
+
+
+def test_persist_does_not_emit_annotation_outside_github_actions(monkeypatch, capsys) -> None:
+    """Local CLI / test runs shouldn't spam ::warning lines to stdout."""
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    qbo.maybe_persist_refresh_token(new_token="RT-new", old_token="RT-old", repo="o/r", pat=None)
+    captured = capsys.readouterr()
+    assert "::warning" not in captured.out
+    assert "::error" not in captured.out
+
+
+def test_persist_does_not_annotate_on_no_rotation(monkeypatch, capsys) -> None:
+    """When Intuit didn't rotate, there's nothing to surface."""
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    qbo.maybe_persist_refresh_token(new_token="same", old_token="same", repo="o/r", pat="ghp_xxx")
+    captured = capsys.readouterr()
+    assert captured.out == ""
+
+
 # ---- update_github_actions_secret --------------------------------------------
 
 

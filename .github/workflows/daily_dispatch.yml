@@ -56,7 +56,7 @@ jobs:
     # headroom for growth; revisit if real runs trend above 30m.
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
