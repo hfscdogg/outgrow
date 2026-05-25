@@ -46,12 +46,13 @@ ignore = ["PLR0913"]
 # wrapping would hurt readability more than it helps. Only E501 (line-too-
 # long) is silenced — every other lint still applies.
 "pulse/mailer.py" = ["E501"]
+"reports/render.py" = ["E501"]
 
 [tool.pyright]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
 reportMissingImports = "error"
-include = ["intake", "voice", "drafting", "sync", "ranking", "pulse", "matching", "pipeline", "scripts", "tests"]
+include = ["intake", "voice", "drafting", "sync", "ranking", "pulse", "matching", "pipeline", "reports", "scripts", "tests"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
