@@ -37,8 +37,16 @@ refresh token does its thing.
    * Save and continue.
 5. **Credentials** (left sidebar) → **Create Credentials → OAuth
    client ID**:
-   * Application type: **Desktop app**
+   * Application type: **Web application** (not Desktop — the OAuth
+     Playground we use in step 2 requires Web with a registered
+     redirect URI; Desktop type can't accept the Playground's URI and
+     fails with ``Error 400: redirect_uri_mismatch``)
    * Name: `outgrow-inbox-poller`
+   * **Authorized redirect URIs** → click **+ Add URI** → paste
+     exactly:
+     ```
+     https://developers.google.com/oauthplayground
+     ```
    * Create. Copy the **Client ID** and **Client secret** — save
      them somewhere; you'll need them in step 3.
 
