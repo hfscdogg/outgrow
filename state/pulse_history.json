@@ -77,6 +77,18 @@
       "rep_id": "zack",
       "pulse_id": "2026-05-25-zack",
       "date": "2026-05-25"
+    },
+    {
+      "customer_id": "176704000000067962",
+      "rep_id": "henry",
+      "pulse_id": "2026-05-26-henry",
+      "date": "2026-05-26"
+    },
+    {
+      "customer_id": "176704000273601003",
+      "rep_id": "zack",
+      "pulse_id": "2026-05-26-zack",
+      "date": "2026-05-26"
     }
   ]
 }
