@@ -67,7 +67,10 @@
       "customer_id": "176704000000067064",
       "rep_id": "henry",
       "pulse_id": "2026-05-25-henry",
-      "date": "2026-05-25"
+      "date": "2026-05-25",
+      "action": "edited",
+      "action_at": "2026-05-25",
+      "edited_text": "Jon:\r\n\r\nHope the system is treating you well. Let me know if you need anything!"
     },
     {
       "customer_id": "176704000188096011",
