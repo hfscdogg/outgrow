@@ -97,6 +97,18 @@
       "action": "skipped",
       "action_at": "2026-05-26",
       "skip_reason": "Skipping because I'm in talks with him actively about the Permit Miner\r\ncampaign"
+    },
+    {
+      "customer_id": "176704000000070084",
+      "rep_id": "henry",
+      "pulse_id": "2026-05-27-henry",
+      "date": "2026-05-27"
+    },
+    {
+      "customer_id": "176704000166353056",
+      "rep_id": "zack",
+      "pulse_id": "2026-05-27-zack",
+      "date": "2026-05-27"
     }
   ]
 }
