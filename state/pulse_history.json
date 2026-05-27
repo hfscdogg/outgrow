@@ -61,7 +61,10 @@
       "customer_id": "176704000280853054",
       "rep_id": "zack",
       "pulse_id": "2026-05-22-zack",
-      "date": "2026-05-22"
+      "date": "2026-05-22",
+      "action": "skipped",
+      "action_at": "2026-05-26",
+      "skip_reason": "In active talks with client on a project"
     },
     {
       "customer_id": "176704000000067064",
@@ -82,13 +85,18 @@
       "customer_id": "176704000000067962",
       "rep_id": "henry",
       "pulse_id": "2026-05-26-henry",
-      "date": "2026-05-26"
+      "date": "2026-05-26",
+      "action": "sent",
+      "action_at": "2026-05-26"
     },
     {
       "customer_id": "176704000273601003",
       "rep_id": "zack",
       "pulse_id": "2026-05-26-zack",
-      "date": "2026-05-26"
+      "date": "2026-05-26",
+      "action": "skipped",
+      "action_at": "2026-05-26",
+      "skip_reason": "Skipping because I'm in talks with him actively about the Permit Miner\r\ncampaign"
     }
   ]
 }
