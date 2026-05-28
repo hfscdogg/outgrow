@@ -102,7 +102,10 @@
       "customer_id": "176704000000070084",
       "rep_id": "henry",
       "pulse_id": "2026-05-27-henry",
-      "date": "2026-05-27"
+      "date": "2026-05-27",
+      "action": "skipped",
+      "action_at": "2026-05-27",
+      "skip_reason": "not worth it."
     },
     {
       "customer_id": "176704000166353056",
