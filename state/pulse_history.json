@@ -117,13 +117,18 @@
       "customer_id": "176704000000064352",
       "rep_id": "henry",
       "pulse_id": "2026-05-28-henry",
-      "date": "2026-05-28"
+      "date": "2026-05-28",
+      "action": "skipped",
+      "action_at": "2026-05-28"
     },
     {
       "customer_id": "176704000179918058",
       "rep_id": "zack",
       "pulse_id": "2026-05-28-zack",
-      "date": "2026-05-28"
+      "date": "2026-05-28",
+      "action": "skipped",
+      "action_at": "2026-05-28",
+      "skip_reason": "Josh M"
     }
   ]
 }
