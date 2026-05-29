@@ -10,6 +10,7 @@ import io
 import json
 import urllib.error
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -102,9 +103,86 @@ def test_fetch_customers_uses_customer_entity() -> None:
 
 
 def test_fetch_invoices_uses_invoice_entity() -> None:
-    fetch, queries = _stub_fetch([{"QueryResponse": {"Invoice": [{"Id": "i1"}]}}])
-    assert fetch_invoices(fetch) == [{"Id": "i1"}]
-    assert "FROM Invoice" in queries[0]
+    # Two-bucket window (2026 + 2027): first bucket returns one invoice,
+    # trailing year is empty.
+    pages = [
+        {"QueryResponse": {"Invoice": [{"Id": "i1"}]}},
+        {"QueryResponse": {"Invoice": []}},
+    ]
+    fetch, queries = _stub_fetch(pages)
+    rows = fetch_invoices(fetch, today=date(2026, 5, 29), start_year=2026)
+    assert rows == [{"Id": "i1"}]
+    assert all("FROM Invoice" in q for q in queries)
+
+
+def test_fetch_invoices_buckets_by_year_with_where_clause() -> None:
+    # One short page per year (start_year=2024, today.year=2026, trailing 2027).
+    pages = [
+        {"QueryResponse": {"Invoice": [{"Id": "a1"}, {"Id": "a2"}]}},
+        {"QueryResponse": {"Invoice": [{"Id": "b1"}]}},
+        {"QueryResponse": {"Invoice": []}},
+        {"QueryResponse": {"Invoice": []}},
+    ]
+    fetch, queries = _stub_fetch(pages)
+    rows = fetch_invoices(fetch, today=date(2026, 5, 29), start_year=2024)
+    assert [r["Id"] for r in rows] == ["a1", "a2", "b1"]
+    # Year-by-year ordering; each bucket starts at STARTPOSITION 1.
+    assert "TxnDate >= '2024-01-01'" in queries[0]
+    assert "TxnDate <= '2024-12-31'" in queries[0]
+    assert "STARTPOSITION 1" in queries[0]
+    assert "TxnDate >= '2025-01-01'" in queries[1]
+    assert "TxnDate >= '2026-01-01'" in queries[2]
+    # Trailing year is included to cover advance-dated invoices.
+    assert "TxnDate >= '2027-01-01'" in queries[3]
+
+
+def test_fetch_invoices_paginates_within_a_single_year() -> None:
+    # Single-year window so we can exercise within-bucket pagination at a
+    # small max_results equivalent — we drive paginate_query directly with
+    # a custom max_results via the where path.
+    pages = [
+        {"QueryResponse": {"Invoice": [{"Id": str(i)} for i in range(MAX_RESULTS)]}},
+        {"QueryResponse": {"Invoice": [{"Id": "tail"}]}},
+        {"QueryResponse": {"Invoice": []}},  # 2026 empty
+    ]
+    fetch, queries = _stub_fetch(pages)
+    rows = fetch_invoices(fetch, today=date(2025, 12, 31), start_year=2025)
+    assert len(rows) == MAX_RESULTS + 1
+    # First 2025 page at STARTPOSITION 1, second 2025 page at STARTPOSITION 1001.
+    assert "STARTPOSITION 1 " in queries[0]
+    assert f"STARTPOSITION {MAX_RESULTS + 1} " in queries[1]
+    # 2026 (trailing year) starts fresh at STARTPOSITION 1.
+    assert "STARTPOSITION 1 " in queries[2]
+    assert "TxnDate >= '2026-01-01'" in queries[2]
+
+
+def test_fetch_invoices_empty_years_pass_through() -> None:
+    # All three years empty: still issues a query per bucket but returns [].
+    pages = [
+        {"QueryResponse": {"Invoice": []}},
+        {"QueryResponse": {"Invoice": []}},
+        {"QueryResponse": {"Invoice": []}},
+    ]
+    fetch, queries = _stub_fetch(pages)
+    rows = fetch_invoices(fetch, today=date(2026, 5, 29), start_year=2025)
+    assert rows == []
+    assert len(queries) == 3  # 2025, 2026, 2027
+
+
+def test_paginate_query_appends_where_clause() -> None:
+    fetch, queries = _stub_fetch([{"QueryResponse": {"Invoice": []}}])
+    paginate_query(fetch, "Invoice", where="TxnDate >= '2024-01-01'")
+    assert queries == [
+        "SELECT * FROM Invoice WHERE TxnDate >= '2024-01-01' "
+        f"STARTPOSITION 1 MAXRESULTS {MAX_RESULTS}"
+    ]
+
+
+def test_paginate_query_runaway_within_where_clause_mentions_filter() -> None:
+    pages = [{"QueryResponse": {"Customer": [{"Id": str(i)} for i in range(5)]}} for _ in range(10)]
+    fetch, _ = _stub_fetch(pages)
+    with pytest.raises(RuntimeError, match="within filter 'Active = true'"):
+        paginate_query(fetch, "Customer", where="Active = true", max_results=5, max_pages=3)
 
 
 def test_write_cache_creates_parent_and_returns_count(tmp_path: Path) -> None:
@@ -124,7 +202,9 @@ def test_write_cache_writes_sorted_keys_for_stable_diffs(tmp_path: Path) -> None
 def test_sync_writes_customers_invoices_and_meta(tmp_path: Path) -> None:
     pages = [
         {"QueryResponse": {"Customer": [{"Id": "c1"}, {"Id": "c2"}]}},
+        # Invoice fetch is year-bucketed: 2026 + 2027 trailing year.
         {"QueryResponse": {"Invoice": [{"Id": "i1"}]}},
+        {"QueryResponse": {"Invoice": []}},
     ]
     fetch, _ = _stub_fetch(pages)
     meta = sync(
@@ -132,6 +212,8 @@ def test_sync_writes_customers_invoices_and_meta(tmp_path: Path) -> None:
         realm_id="9341454763950398",
         cache_dir=tmp_path,
         now_iso="2026-05-06T11:00:00+00:00",
+        today=date(2026, 5, 6),
+        start_year=2026,
     )
 
     assert meta == {
@@ -152,10 +234,19 @@ def test_sync_creates_cache_dir_if_missing(tmp_path: Path) -> None:
     target = tmp_path / "fresh" / "qbo"
     pages = [
         {"QueryResponse": {"Customer": []}},
+        # 2026 + 2027 trailing year, both empty.
+        {"QueryResponse": {"Invoice": []}},
         {"QueryResponse": {"Invoice": []}},
     ]
     fetch, _ = _stub_fetch(pages)
-    sync(fetch, realm_id="r1", cache_dir=target, now_iso="2026-05-06T11:00:00+00:00")
+    sync(
+        fetch,
+        realm_id="r1",
+        cache_dir=target,
+        now_iso="2026-05-06T11:00:00+00:00",
+        today=date(2026, 5, 6),
+        start_year=2026,
+    )
     assert (target / "customers.json").exists()
     assert (target / "invoices.json").exists()
     assert (target / "_meta.json").exists()

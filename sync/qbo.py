@@ -16,6 +16,12 @@ N MAXRESULTS 1000``. There is no ``hasMore`` flag — convention is to
 stop when a page returns fewer rows than the requested ``MAXRESULTS``.
 ``max_pages`` caps runaway loops on a malformed response.
 
+Invoice queries are year-bucketed (``TxnDate`` WHERE clause per calendar
+year) because Intuit's API silently returns ``HTTP 500`` code ``10000``
+on queries with very deep ``STARTPOSITION``. A prod realm with 21k+
+invoices hit that wall on May 29 2026; bucketing keeps each pagination
+shallow enough to never reach it. See ``fetch_invoices``.
+
 The module is structured so the network-bound helpers
 (``refresh_access_token``, ``make_qbo_query``) sit at the edge and the
 pagination + cache logic is pure. Tests inject a fake ``QueryFetcher``;
@@ -43,7 +49,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +63,11 @@ MAX_RESULTS = 1000
 MAX_PAGES = 500
 HTTP_TIMEOUT_S = 30
 HTTP_NO_CONTENT = 204
+
+# Floor year for invoice bucketing — predates Livewire's founding so we never
+# miss historical rows. Years with zero invoices return one empty page and
+# are skipped fast (~1 cheap round-trip each at the floor).
+QBO_INVOICE_START_YEAR = 2008
 
 SANDBOX_BASE = "https://sandbox-quickbooks.api.intuit.com"
 PRODUCTION_BASE = "https://quickbooks.api.intuit.com"
@@ -199,6 +210,7 @@ def paginate_query(
     fetch: QueryFetcher,
     entity: str,
     *,
+    where: str | None = None,
     max_results: int = MAX_RESULTS,
     max_pages: int = MAX_PAGES,
 ) -> list[dict[str, Any]]:
@@ -207,26 +219,53 @@ def paginate_query(
     QBO has no ``hasMore`` flag; convention is to stop when a page
     returns fewer rows than ``max_results``. The ``max_pages`` cap
     defends against an accidental infinite loop on a malformed response.
+
+    Pass ``where`` (raw SQL fragment, no leading ``WHERE``) to filter
+    server-side — used by ``fetch_invoices`` to year-bucket around the
+    deep-pagination wall.
     """
     rows: list[dict[str, Any]] = []
+    where_sql = f" WHERE {where}" if where else ""
     for page in range(max_pages):
         start = 1 + page * max_results
-        query = f"SELECT * FROM {entity} STARTPOSITION {start} MAXRESULTS {max_results}"
+        query = f"SELECT * FROM {entity}{where_sql} STARTPOSITION {start} MAXRESULTS {max_results}"
         payload = fetch(query)
         envelope = payload.get("QueryResponse") or {}
         page_rows = envelope.get(entity) or []
         rows.extend(page_rows)
         if len(page_rows) < max_results:
             return rows
-    raise RuntimeError(f"QBO {entity} query exceeded {max_pages} pages; aborting.")
+    suffix = f" within filter '{where}'" if where else ""
+    raise RuntimeError(f"QBO {entity} query exceeded {max_pages} pages{suffix}; aborting.")
 
 
 def fetch_customers(fetch: QueryFetcher) -> list[dict[str, Any]]:
     return paginate_query(fetch, "Customer")
 
 
-def fetch_invoices(fetch: QueryFetcher) -> list[dict[str, Any]]:
-    return paginate_query(fetch, "Invoice")
+def fetch_invoices(
+    fetch: QueryFetcher,
+    *,
+    today: date | None = None,
+    start_year: int = QBO_INVOICE_START_YEAR,
+) -> list[dict[str, Any]]:
+    """Pull every invoice, bucketed by ``TxnDate`` year.
+
+    An unfiltered ``SELECT * FROM Invoice`` paginates from ``STARTPOSITION
+    1``; once it climbs past ~20k Intuit's API silently returns ``HTTP 500``
+    code ``10000`` ("An application error has occurred"). Henry's prod
+    realm hit that wall at position 21001 on May 29 2026. Splitting by
+    year keeps each pagination shallow.
+
+    Buckets run ``start_year`` through ``today.year + 1`` (the trailing
+    year covers advance-dated invoices). Empty years cost one round-trip.
+    """
+    today_date = today or datetime.now(UTC).date()
+    rows: list[dict[str, Any]] = []
+    for year in range(start_year, today_date.year + 2):
+        where = f"TxnDate >= '{year}-01-01' AND TxnDate <= '{year}-12-31'"
+        rows.extend(paginate_query(fetch, "Invoice", where=where))
+    return rows
 
 
 def write_cache(rows: Iterable[dict[str, Any]], path: Path) -> int:
@@ -249,10 +288,17 @@ def sync(
     realm_id: str,
     cache_dir: Path = CACHE_DIR,
     now_iso: str | None = None,
+    today: date | None = None,
+    start_year: int = QBO_INVOICE_START_YEAR,
 ) -> dict[str, Any]:
-    """Run the full Customers + Invoices pull; write JSON dumps + meta."""
+    """Run the full Customers + Invoices pull; write JSON dumps + meta.
+
+    ``today`` and ``start_year`` are passed through to ``fetch_invoices``
+    to size the year-bucketed pagination — tests use them to keep stubs
+    small; production runs use defaults (today = UTC now, floor 2008).
+    """
     customers = fetch_customers(fetch)
-    invoices = fetch_invoices(fetch)
+    invoices = fetch_invoices(fetch, today=today, start_year=start_year)
     write_cache(customers, cache_dir / "customers.json")
     write_cache(invoices, cache_dir / "invoices.json")
     meta = {
