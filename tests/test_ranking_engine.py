@@ -46,6 +46,7 @@ def _cfg(**overrides: object) -> RankingConfig:
         "cold_floor_factor": 0.5,
         "min_rep_match_confidence": 0.5,
         "suppression_penalty": 0.0,
+        "min_ltv_cents": 0,
     }
     base.update(overrides)
     return RankingConfig(**base)  # type: ignore[arg-type]
@@ -226,11 +227,12 @@ def test_eligibility_reason_none_when_eligible() -> None:
 
 def test_eligibility_reason_classifies_each_rejection() -> None:
     today = date(2026, 5, 6)
-    cfg = _cfg()
+    cfg = _cfg(min_ltv_cents=100_000)
     cases = {
         "play_disabled": (_customer(), _play(enabled=False)),
         "suppressed": (_customer(suppressed=True, suppression_reason="x"), _play()),
         "low_confidence": (_customer(rep_match_confidence=0.1), _play()),
+        "low_ltv": (_customer(ltv_cents=50_000), _play()),
         "install_window": (
             _customer(last_install_completed_at=date(2026, 4, 30)),
             _play(min_days_since_install=60),
@@ -240,6 +242,35 @@ def test_eligibility_reason_classifies_each_rejection() -> None:
     }
     for expected, (c, p) in cases.items():
         assert eligibility_reason(c, p, cfg, today) == expected, expected
+
+
+def test_eligibility_low_ltv_uses_raw_ltv_not_legacy_bonus() -> None:
+    """Pre-QBO customer with tiny visible spend should still fail the LTV
+    floor — the legacy_bonus is for ranking math, not the eligibility gate.
+    """
+    today = date(2026, 5, 6)
+    cfg = _cfg(min_ltv_cents=100_000)
+    pre_qbo_tiny_spend = _customer(
+        ltv_cents=10_000,  # $100 visible
+        first_known_contact_at=date(2007, 1, 1),  # would earn big legacy_bonus
+        last_purchase_at=date(2025, 5, 6),
+    )
+    assert eligibility_reason(pre_qbo_tiny_spend, _play(), cfg, today) == "low_ltv"
+
+
+def test_eligibility_low_ltv_at_threshold_is_eligible() -> None:
+    today = date(2026, 5, 6)
+    cfg = _cfg(min_ltv_cents=100_000)
+    at_threshold = _customer(ltv_cents=100_000, last_purchase_at=date(2025, 5, 6))
+    assert eligibility_reason(at_threshold, _play(), cfg, today) is None
+
+
+def test_eligibility_low_ltv_default_zero_allows_everything() -> None:
+    """Default min_ltv_cents=0 preserves pre-existing behavior."""
+    today = date(2026, 5, 6)
+    cfg = _cfg()  # min_ltv_cents defaults to 0
+    zero_spend = _customer(ltv_cents=0, last_purchase_at=date(2025, 5, 6))
+    assert eligibility_reason(zero_spend, _play(), cfg, today) is None
 
 
 def test_eligibility_reason_keys_are_all_documented() -> None:
@@ -454,3 +485,4 @@ def test_load_ranking_config_reads_shipped_config() -> None:
     assert cfg.too_recent_days == 30
     assert cfg.cold_floor_factor == 0.5
     assert cfg.min_rep_match_confidence == 0.5
+    assert cfg.min_ltv_cents == 100_000  # $1,000 floor

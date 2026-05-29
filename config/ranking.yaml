@@ -41,6 +41,16 @@ dormancy:
 rep_match:
   min_confidence: 0.5
 
+# Hard floor on raw QBO-visible lifetime spend (cents). One-off small-job
+# customers (single service call, one-time accessory sale) drop out before
+# scoring — the rep doesn't have enough context on them for a proactive
+# pulse to feel personal. Compared against raw LTV only; the `legacy_bonus`
+# above is excluded so a pre-QBO customer with $200 of visible spend gets
+# filtered the same as a modern one. If pre-QBO customers should pass,
+# either backfill their LTV or lower this floor.
+eligibility:
+  min_lifetime_spend_cents: 100000  # $1,000
+
 # Reserved for future soft-suppression (recently-sent etc.). Hard suppressions
 # (open_ticket, active_deal, opted_out) filter the customer out upstream and
 # never reach the score formula.

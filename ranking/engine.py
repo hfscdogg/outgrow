@@ -103,6 +103,11 @@ class RankingConfig:
     cold_floor_factor: float
     min_rep_match_confidence: float
     suppression_penalty: float
+    # Floor on raw QBO-visible LTV (cents). Filters one-off small-job
+    # customers out before scoring. Compared against ``customer.ltv_cents``
+    # only — does NOT include the legacy_bonus uplift, since this gate is
+    # about real visible spend, not ranking math.
+    min_ltv_cents: int = 0
 
 
 @dataclass(frozen=True)
@@ -128,6 +133,7 @@ ELIGIBILITY_REASONS: tuple[str, ...] = (
     "play_disabled",
     "suppressed",
     "low_confidence",
+    "low_ltv",
     "install_window",
     "no_purchase_date",
     "too_recent",
@@ -157,6 +163,7 @@ def load_ranking_config(path: Path = DEFAULT_RANKING_PATH) -> RankingConfig:
     legacy = payload.get("legacy_bonus") or {}
     dormancy = payload.get("dormancy") or {}
     rep_match = payload.get("rep_match") or {}
+    eligibility = payload.get("eligibility") or {}
     return RankingConfig(
         qbo_horizon=date.fromisoformat(legacy["qbo_horizon_iso"]),
         legacy_bonus_cents_per_year=int(legacy["bonus_cents_per_year_before_horizon"]),
@@ -167,6 +174,7 @@ def load_ranking_config(path: Path = DEFAULT_RANKING_PATH) -> RankingConfig:
         cold_floor_factor=float(dormancy["cold_floor_factor"]),
         min_rep_match_confidence=float(rep_match["min_confidence"]),
         suppression_penalty=float(payload.get("suppression_penalty", 0.0)),
+        min_ltv_cents=int(eligibility.get("min_lifetime_spend_cents", 0)),
     )
 
 
@@ -221,6 +229,8 @@ def eligibility_reason(  # noqa: PLR0911 -- guard-chain; one return per filter i
         return "suppressed"
     if customer.rep_match_confidence < cfg.min_rep_match_confidence:
         return "low_confidence"
+    if customer.ltv_cents < cfg.min_ltv_cents:
+        return "low_ltv"
     if not is_in_install_window(customer, play, today):
         return "install_window"
     days = dormancy_days(customer, today)
