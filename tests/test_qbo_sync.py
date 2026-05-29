@@ -180,6 +180,96 @@ def test_fetch_invoices_empty_months_pass_through() -> None:
     assert len(queries) == 24
 
 
+def _overload_response(reason: str = "year-end surge") -> Exception:
+    """Build the same RuntimeError shape ``paginate_query`` raises on Intuit's
+    ``HTTP 500`` + code ``10000`` envelope so the adaptive splitter sees the
+    real wire signature it's matching on.
+    """
+    return RuntimeError(
+        f'QBO query failed (HTTP 500): {{"Fault":{{"Error":[{{"code":"10000",'
+        f'"Message":"An application error has occurred ({reason})"}}]}}}}'
+    )
+
+
+def _adaptive_fetch(
+    *,
+    overflow_when: Callable[[str], bool],
+    rows_for: Callable[[str], list[dict[str, Any]]],
+) -> tuple[Callable[[str], dict[str, Any]], list[str]]:
+    """Fetcher that raises Intuit's overload error on queries matching
+    ``overflow_when``, otherwise returns the rows from ``rows_for``.
+    """
+    seen: list[str] = []
+
+    def fetch(query: str) -> dict[str, Any]:
+        seen.append(query)
+        if overflow_when(query):
+            raise _overload_response()
+        return {"QueryResponse": {"Invoice": rows_for(query)}}
+
+    return fetch, seen
+
+
+def test_fetch_invoices_splits_month_on_overload() -> None:
+    # December 2025 overflows as a whole month; after halving (Dec 1-16 vs
+    # Dec 17-31) both halves come back fine.
+    def overflow(q: str) -> bool:
+        return "TxnDate >= '2025-12-01'" in q and "TxnDate <= '2025-12-31'" in q
+
+    def rows_for(q: str) -> list[dict[str, Any]]:
+        if "'2025-12-01'" in q and "'2025-12-16'" in q:
+            return [{"Id": "dec-a"}]
+        if "'2025-12-17'" in q and "'2025-12-31'" in q:
+            return [{"Id": "dec-b"}]
+        return []
+
+    fetch, queries = _adaptive_fetch(overflow_when=overflow, rows_for=rows_for)
+    # Single-year window: Jan-Dec 2025 (12 buckets) + Jan-Dec 2026 trailing (12).
+    rows = fetch_invoices(fetch, today=date(2025, 12, 31), start_year=2025)
+    ids = {r["Id"] for r in rows}
+    assert ids == {"dec-a", "dec-b"}
+    # December attempted as a whole month, then the two halves.
+    assert any("'2025-12-01'" in q and "'2025-12-31'" in q for q in queries)
+    assert any("'2025-12-01'" in q and "'2025-12-16'" in q for q in queries)
+    assert any("'2025-12-17'" in q and "'2025-12-31'" in q for q in queries)
+
+
+def test_fetch_invoices_recursively_splits_until_safe() -> None:
+    # December 2025 overflows whole, AND its first half (1-16) also overflows.
+    # Only the 1-8 / 9-16 quarter-windows succeed.
+    def overflow(q: str) -> bool:
+        is_dec_full = "'2025-12-01'" in q and "'2025-12-31'" in q
+        is_dec_first_half = "'2025-12-01'" in q and "'2025-12-16'" in q
+        return is_dec_full or is_dec_first_half
+
+    fetch, queries = _adaptive_fetch(
+        overflow_when=overflow,
+        rows_for=lambda q: [{"Id": "dec"}] if "'2025-12-" in q else [],
+    )
+    rows = fetch_invoices(fetch, today=date(2025, 12, 31), start_year=2025)
+    # Three December windows survive: 12-01..12-08, 12-09..12-16, 12-17..12-31.
+    assert sum(1 for r in rows if r["Id"] == "dec") == 3
+    assert any("'2025-12-01'" in q and "'2025-12-08'" in q for q in queries)
+    assert any("'2025-12-09'" in q and "'2025-12-16'" in q for q in queries)
+
+
+def test_fetch_invoices_raises_clear_error_when_single_day_overflows() -> None:
+    # Every window overflows — splitting bottoms out at a single day and
+    # surfaces a clear error rather than recursing forever.
+    fetch, _ = _adaptive_fetch(overflow_when=lambda _q: True, rows_for=lambda _q: [])
+    with pytest.raises(RuntimeError, match="overflows the result-set wall even as a single day"):
+        fetch_invoices(fetch, today=date(2026, 1, 31), start_year=2026)
+
+
+def test_fetch_invoices_propagates_non_overload_errors() -> None:
+    # A 4xx or non-10000 5xx must NOT be swallowed by the adaptive splitter.
+    def fetch(_q: str) -> dict[str, Any]:
+        raise RuntimeError("QBO query failed (HTTP 401): {} | query=...")
+
+    with pytest.raises(RuntimeError, match="HTTP 401"):
+        fetch_invoices(fetch, today=date(2026, 1, 31), start_year=2026)
+
+
 def test_paginate_query_appends_where_clause() -> None:
     fetch, queries = _stub_fetch([{"QueryResponse": {"Invoice": []}}])
     paginate_query(fetch, "Invoice", where="TxnDate >= '2024-01-01'")

@@ -16,13 +16,16 @@ N MAXRESULTS 1000``. There is no ``hasMore`` flag — convention is to
 stop when a page returns fewer rows than the requested ``MAXRESULTS``.
 ``max_pages`` caps runaway loops on a malformed response.
 
-Invoice queries are month-bucketed (``TxnDate`` WHERE clause per calendar
-month) because Intuit's API silently returns ``HTTP 500`` code ``10000``
-on queries with deep ``STARTPOSITION``. A prod realm tripped this twice
-on May 29 2026: at position 21001 unbucketed, and at position 9001 after
-switching to year-buckets — a single active year carries 9k+ invoices.
-Month-bucketing keeps each pagination well under the wall. See
-``fetch_invoices``.
+Invoice queries are month-bucketed with adaptive halving on overflow.
+Intuit returns ``HTTP 500`` code ``10000`` when a query's matched set
+is too large — the wall isn't about pagination depth, it's about
+result-set size. Prod observations on May 29 2026: unbucketed failed at
+``STARTPOSITION 21001``, year-buckets failed at ``9001`` inside 2025,
+month-buckets failed at ``STARTPOSITION 1`` for December 2025 (year-end
+billing surge). The current strategy tries each calendar month as one
+window; on overflow it halves the date range and recurses, bottoming
+out at single-day windows. Self-heals for whatever distribution shape
+the realm has. See ``fetch_invoices`` / ``_fetch_invoice_window_adaptive``.
 
 The module is structured so the network-bound helpers
 (``refresh_access_token``, ``make_qbo_query``) sit at the edge and the
@@ -246,26 +249,71 @@ def fetch_customers(fetch: QueryFetcher) -> list[dict[str, Any]]:
     return paginate_query(fetch, "Customer")
 
 
+def _is_qbo_overload_error(exc: BaseException) -> bool:
+    """Detect Intuit's "result set too large" failure mode.
+
+    Returns ``True`` for the ``HTTP 500`` + ``"code":"10000"`` envelope
+    Intuit returns when a query matches more rows than it can serve in
+    one shot (the wall isn't documented; we've seen it concentrate in
+    year-end-billing months). Other errors propagate unchanged.
+    """
+    msg = str(exc)
+    return "HTTP 500" in msg and '"code":"10000"' in msg
+
+
+def _fetch_invoice_window_adaptive(
+    fetch: QueryFetcher,
+    start_date: date,
+    end_date: date,
+) -> list[dict[str, Any]]:
+    """Fetch a ``TxnDate`` window. On overload, split the window in half and
+    recurse — bottoms out at single-day windows.
+
+    Most month-sized windows fetch in one query. Year-end billing-surge
+    months auto-split a few times. If a single day overflows we surface a
+    clear error rather than looping forever.
+    """
+    where = f"TxnDate >= '{start_date.isoformat()}' AND TxnDate <= '{end_date.isoformat()}'"
+    try:
+        return paginate_query(fetch, "Invoice", where=where)
+    except RuntimeError as e:
+        if not _is_qbo_overload_error(e):
+            raise
+        if start_date >= end_date:
+            raise RuntimeError(
+                f"QBO Invoice window {start_date.isoformat()} overflows the "
+                "result-set wall even as a single day; cannot split further."
+            ) from e
+        span = (end_date - start_date).days
+        mid = start_date + timedelta(days=span // 2)
+        return _fetch_invoice_window_adaptive(
+            fetch, start_date, mid
+        ) + _fetch_invoice_window_adaptive(fetch, mid + timedelta(days=1), end_date)
+
+
 def fetch_invoices(
     fetch: QueryFetcher,
     *,
     today: date | None = None,
     start_year: int = QBO_INVOICE_START_YEAR,
 ) -> list[dict[str, Any]]:
-    """Pull every invoice, bucketed by ``TxnDate`` month.
+    """Pull every invoice, bucketed by ``TxnDate`` month with adaptive fallback.
 
-    An unfiltered ``SELECT * FROM Invoice`` paginates from ``STARTPOSITION
-    1``; once it climbs past some opaque threshold Intuit's API silently
-    returns ``HTTP 500`` code ``10000`` ("An application error has
-    occurred"). Henry's prod realm hit it at position 21001 on May 29 2026
-    unbucketed, and again at position 9001 after switching to year-buckets
-    — a single active calendar year carries 9k+ invoices. Splitting by
-    month keeps each pagination well under the wall.
+    An unfiltered ``SELECT * FROM Invoice`` returns ``HTTP 500`` code
+    ``10000`` once the matched set is large enough — the wall isn't
+    documented or predictable. Prod observations on May 29 2026:
+    unbucketed failed at ``STARTPOSITION 21001``, year-buckets failed at
+    ``9001`` inside 2025, month-buckets failed at ``STARTPOSITION 1`` for
+    December 2025 (year-end billing surge). The wall is about matched-set
+    size, not pagination depth.
+
+    Strategy: try each calendar month as one window; if Intuit overflows,
+    halve the window and recurse (see ``_fetch_invoice_window_adaptive``).
+    Most months fetch in one query; problem months split a few times.
+    Bottoms out at single-day windows.
 
     Buckets run ``start_year`` through ``today.year + 1`` (the trailing
-    year covers advance-dated invoices). ~12 queries per year × ~18 years
-    ≈ 216 round-trips at the floor; empty months return one short page
-    each and cost only the network handshake.
+    year covers advance-dated invoices). Empty months cost one round-trip.
     """
     today_date = today or datetime.now(UTC).date()
     rows: list[dict[str, Any]] = []
@@ -278,10 +326,7 @@ def fetch_invoices(
                 date(year + 1, 1, 1) if month == MONTHS_PER_YEAR else date(year, month + 1, 1)
             )
             month_end = next_month_start - timedelta(days=1)
-            where = (
-                f"TxnDate >= '{month_start.isoformat()}' AND TxnDate <= '{month_end.isoformat()}'"
-            )
-            rows.extend(paginate_query(fetch, "Invoice", where=where))
+            rows.extend(_fetch_invoice_window_adaptive(fetch, month_start, month_end))
     return rows
 
 
