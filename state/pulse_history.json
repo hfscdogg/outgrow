@@ -129,6 +129,18 @@
       "action": "skipped",
       "action_at": "2026-05-28",
       "skip_reason": "Josh M"
+    },
+    {
+      "customer_id": "176704000000065064",
+      "rep_id": "henry",
+      "pulse_id": "2026-05-29-henry",
+      "date": "2026-05-29"
+    },
+    {
+      "customer_id": "176704000187213095",
+      "rep_id": "zack",
+      "pulse_id": "2026-05-29-zack",
+      "date": "2026-05-29"
     }
   ]
 }
