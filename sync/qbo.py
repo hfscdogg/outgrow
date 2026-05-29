@@ -16,11 +16,13 @@ N MAXRESULTS 1000``. There is no ``hasMore`` flag — convention is to
 stop when a page returns fewer rows than the requested ``MAXRESULTS``.
 ``max_pages`` caps runaway loops on a malformed response.
 
-Invoice queries are year-bucketed (``TxnDate`` WHERE clause per calendar
-year) because Intuit's API silently returns ``HTTP 500`` code ``10000``
-on queries with very deep ``STARTPOSITION``. A prod realm with 21k+
-invoices hit that wall on May 29 2026; bucketing keeps each pagination
-shallow enough to never reach it. See ``fetch_invoices``.
+Invoice queries are month-bucketed (``TxnDate`` WHERE clause per calendar
+month) because Intuit's API silently returns ``HTTP 500`` code ``10000``
+on queries with deep ``STARTPOSITION``. A prod realm tripped this twice
+on May 29 2026: at position 21001 unbucketed, and at position 9001 after
+switching to year-buckets — a single active year carries 9k+ invoices.
+Month-bucketing keeps each pagination well under the wall. See
+``fetch_invoices``.
 
 The module is structured so the network-bound helpers
 (``refresh_access_token``, ``make_qbo_query``) sit at the edge and the
@@ -49,7 +51,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -65,9 +67,10 @@ HTTP_TIMEOUT_S = 30
 HTTP_NO_CONTENT = 204
 
 # Floor year for invoice bucketing — predates Livewire's founding so we never
-# miss historical rows. Years with zero invoices return one empty page and
+# miss historical rows. Months with zero invoices return one empty page and
 # are skipped fast (~1 cheap round-trip each at the floor).
 QBO_INVOICE_START_YEAR = 2008
+MONTHS_PER_YEAR = 12
 
 SANDBOX_BASE = "https://sandbox-quickbooks.api.intuit.com"
 PRODUCTION_BASE = "https://quickbooks.api.intuit.com"
@@ -221,7 +224,7 @@ def paginate_query(
     defends against an accidental infinite loop on a malformed response.
 
     Pass ``where`` (raw SQL fragment, no leading ``WHERE``) to filter
-    server-side — used by ``fetch_invoices`` to year-bucket around the
+    server-side — used by ``fetch_invoices`` to month-bucket around the
     deep-pagination wall.
     """
     rows: list[dict[str, Any]] = []
@@ -249,22 +252,36 @@ def fetch_invoices(
     today: date | None = None,
     start_year: int = QBO_INVOICE_START_YEAR,
 ) -> list[dict[str, Any]]:
-    """Pull every invoice, bucketed by ``TxnDate`` year.
+    """Pull every invoice, bucketed by ``TxnDate`` month.
 
     An unfiltered ``SELECT * FROM Invoice`` paginates from ``STARTPOSITION
-    1``; once it climbs past ~20k Intuit's API silently returns ``HTTP 500``
-    code ``10000`` ("An application error has occurred"). Henry's prod
-    realm hit that wall at position 21001 on May 29 2026. Splitting by
-    year keeps each pagination shallow.
+    1``; once it climbs past some opaque threshold Intuit's API silently
+    returns ``HTTP 500`` code ``10000`` ("An application error has
+    occurred"). Henry's prod realm hit it at position 21001 on May 29 2026
+    unbucketed, and again at position 9001 after switching to year-buckets
+    — a single active calendar year carries 9k+ invoices. Splitting by
+    month keeps each pagination well under the wall.
 
     Buckets run ``start_year`` through ``today.year + 1`` (the trailing
-    year covers advance-dated invoices). Empty years cost one round-trip.
+    year covers advance-dated invoices). ~12 queries per year × ~18 years
+    ≈ 216 round-trips at the floor; empty months return one short page
+    each and cost only the network handshake.
     """
     today_date = today or datetime.now(UTC).date()
     rows: list[dict[str, Any]] = []
     for year in range(start_year, today_date.year + 2):
-        where = f"TxnDate >= '{year}-01-01' AND TxnDate <= '{year}-12-31'"
-        rows.extend(paginate_query(fetch, "Invoice", where=where))
+        for month in range(1, MONTHS_PER_YEAR + 1):
+            month_start = date(year, month, 1)
+            # Last day: jump to next month's first day, subtract one — sidesteps
+            # leap-year / month-length edge cases.
+            next_month_start = (
+                date(year + 1, 1, 1) if month == MONTHS_PER_YEAR else date(year, month + 1, 1)
+            )
+            month_end = next_month_start - timedelta(days=1)
+            where = (
+                f"TxnDate >= '{month_start.isoformat()}' AND TxnDate <= '{month_end.isoformat()}'"
+            )
+            rows.extend(paginate_query(fetch, "Invoice", where=where))
     return rows
 
 
