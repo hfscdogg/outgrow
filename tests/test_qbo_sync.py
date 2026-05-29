@@ -102,71 +102,82 @@ def test_fetch_customers_uses_customer_entity() -> None:
     assert "FROM Customer" in queries[0]
 
 
+def _empty_invoice_pages(n: int) -> list[dict[str, Any]]:
+    """N short pages — the cheap path each empty month bucket takes."""
+    return [{"QueryResponse": {"Invoice": []}} for _ in range(n)]
+
+
 def test_fetch_invoices_uses_invoice_entity() -> None:
-    # Two-bucket window (2026 + 2027): first bucket returns one invoice,
-    # trailing year is empty.
-    pages = [
-        {"QueryResponse": {"Invoice": [{"Id": "i1"}]}},
-        {"QueryResponse": {"Invoice": []}},
-    ]
+    # Two-year window (2026 + 2027) = 24 month buckets. First month has
+    # one invoice; remaining 23 months empty.
+    pages = [{"QueryResponse": {"Invoice": [{"Id": "i1"}]}}, *_empty_invoice_pages(23)]
     fetch, queries = _stub_fetch(pages)
     rows = fetch_invoices(fetch, today=date(2026, 5, 29), start_year=2026)
     assert rows == [{"Id": "i1"}]
     assert all("FROM Invoice" in q for q in queries)
+    assert len(queries) == 24
 
 
-def test_fetch_invoices_buckets_by_year_with_where_clause() -> None:
-    # One short page per year (start_year=2024, today.year=2026, trailing 2027).
+def test_fetch_invoices_buckets_by_month_with_where_clause() -> None:
+    # Single-year window (start_year=2025, today=2025-12-31) = 12 month
+    # buckets, plus 12 for trailing 2026 = 24. All empty except Jan 2025.
     pages = [
-        {"QueryResponse": {"Invoice": [{"Id": "a1"}, {"Id": "a2"}]}},
-        {"QueryResponse": {"Invoice": [{"Id": "b1"}]}},
-        {"QueryResponse": {"Invoice": []}},
-        {"QueryResponse": {"Invoice": []}},
+        {"QueryResponse": {"Invoice": [{"Id": "jan1"}, {"Id": "jan2"}]}},
+        *_empty_invoice_pages(23),
     ]
     fetch, queries = _stub_fetch(pages)
-    rows = fetch_invoices(fetch, today=date(2026, 5, 29), start_year=2024)
-    assert [r["Id"] for r in rows] == ["a1", "a2", "b1"]
-    # Year-by-year ordering; each bucket starts at STARTPOSITION 1.
-    assert "TxnDate >= '2024-01-01'" in queries[0]
-    assert "TxnDate <= '2024-12-31'" in queries[0]
-    assert "STARTPOSITION 1" in queries[0]
-    assert "TxnDate >= '2025-01-01'" in queries[1]
-    assert "TxnDate >= '2026-01-01'" in queries[2]
-    # Trailing year is included to cover advance-dated invoices.
-    assert "TxnDate >= '2027-01-01'" in queries[3]
+    rows = fetch_invoices(fetch, today=date(2025, 12, 31), start_year=2025)
+    assert [r["Id"] for r in rows] == ["jan1", "jan2"]
+    # Jan: TxnDate >= '2025-01-01' AND TxnDate <= '2025-01-31'
+    assert "TxnDate >= '2025-01-01'" in queries[0]
+    assert "TxnDate <= '2025-01-31'" in queries[0]
+    # Feb: 28-day month (2025 is not a leap year).
+    assert "TxnDate >= '2025-02-01'" in queries[1]
+    assert "TxnDate <= '2025-02-28'" in queries[1]
+    # Dec: 31-day month.
+    assert "TxnDate >= '2025-12-01'" in queries[11]
+    assert "TxnDate <= '2025-12-31'" in queries[11]
+    # Trailing year starts fresh in Jan 2026.
+    assert "TxnDate >= '2026-01-01'" in queries[12]
 
 
-def test_fetch_invoices_paginates_within_a_single_year() -> None:
-    # Single-year window so we can exercise within-bucket pagination at a
-    # small max_results equivalent — we drive paginate_query directly with
-    # a custom max_results via the where path.
+def test_fetch_invoices_handles_leap_february() -> None:
+    # 2024 is a leap year — Feb has 29 days. Regression guard: a hardcoded
+    # 28 would silently miss Feb 29 invoices.
+    fetch, queries = _stub_fetch(_empty_invoice_pages(24))  # 2024 + 2025
+    fetch_invoices(fetch, today=date(2024, 12, 31), start_year=2024)
+    feb = queries[1]
+    assert "TxnDate >= '2024-02-01'" in feb
+    assert "TxnDate <= '2024-02-29'" in feb
+
+
+def test_fetch_invoices_paginates_within_a_single_month() -> None:
+    # One month worth of MAX_RESULTS+1 rows: two pages within the bucket,
+    # then 23 empty buckets for the remaining months.
     pages = [
         {"QueryResponse": {"Invoice": [{"Id": str(i)} for i in range(MAX_RESULTS)]}},
         {"QueryResponse": {"Invoice": [{"Id": "tail"}]}},
-        {"QueryResponse": {"Invoice": []}},  # 2026 empty
+        *_empty_invoice_pages(23),
     ]
     fetch, queries = _stub_fetch(pages)
     rows = fetch_invoices(fetch, today=date(2025, 12, 31), start_year=2025)
     assert len(rows) == MAX_RESULTS + 1
-    # First 2025 page at STARTPOSITION 1, second 2025 page at STARTPOSITION 1001.
+    # First Jan page at STARTPOSITION 1, second Jan page at STARTPOSITION 1001.
     assert "STARTPOSITION 1 " in queries[0]
+    assert "TxnDate <= '2025-01-31'" in queries[0]
     assert f"STARTPOSITION {MAX_RESULTS + 1} " in queries[1]
-    # 2026 (trailing year) starts fresh at STARTPOSITION 1.
+    assert "TxnDate <= '2025-01-31'" in queries[1]
+    # Feb (next month) starts fresh at STARTPOSITION 1.
     assert "STARTPOSITION 1 " in queries[2]
-    assert "TxnDate >= '2026-01-01'" in queries[2]
+    assert "TxnDate >= '2025-02-01'" in queries[2]
 
 
-def test_fetch_invoices_empty_years_pass_through() -> None:
-    # All three years empty: still issues a query per bucket but returns [].
-    pages = [
-        {"QueryResponse": {"Invoice": []}},
-        {"QueryResponse": {"Invoice": []}},
-        {"QueryResponse": {"Invoice": []}},
-    ]
-    fetch, queries = _stub_fetch(pages)
-    rows = fetch_invoices(fetch, today=date(2026, 5, 29), start_year=2025)
+def test_fetch_invoices_empty_months_pass_through() -> None:
+    # start_year=2026, today=2026-05-29 → 24 month buckets all empty.
+    fetch, queries = _stub_fetch(_empty_invoice_pages(24))
+    rows = fetch_invoices(fetch, today=date(2026, 5, 29), start_year=2026)
     assert rows == []
-    assert len(queries) == 3  # 2025, 2026, 2027
+    assert len(queries) == 24
 
 
 def test_paginate_query_appends_where_clause() -> None:
@@ -202,9 +213,10 @@ def test_write_cache_writes_sorted_keys_for_stable_diffs(tmp_path: Path) -> None
 def test_sync_writes_customers_invoices_and_meta(tmp_path: Path) -> None:
     pages = [
         {"QueryResponse": {"Customer": [{"Id": "c1"}, {"Id": "c2"}]}},
-        # Invoice fetch is year-bucketed: 2026 + 2027 trailing year.
+        # Invoice fetch is month-bucketed: 2026 + 2027 trailing year = 24 months.
+        # One invoice in Jan 2026; remaining 23 months empty.
         {"QueryResponse": {"Invoice": [{"Id": "i1"}]}},
-        {"QueryResponse": {"Invoice": []}},
+        *_empty_invoice_pages(23),
     ]
     fetch, _ = _stub_fetch(pages)
     meta = sync(
@@ -234,9 +246,8 @@ def test_sync_creates_cache_dir_if_missing(tmp_path: Path) -> None:
     target = tmp_path / "fresh" / "qbo"
     pages = [
         {"QueryResponse": {"Customer": []}},
-        # 2026 + 2027 trailing year, both empty.
-        {"QueryResponse": {"Invoice": []}},
-        {"QueryResponse": {"Invoice": []}},
+        # 2026 + 2027 trailing year = 24 month buckets, all empty.
+        *_empty_invoice_pages(24),
     ]
     fetch, _ = _stub_fetch(pages)
     sync(
