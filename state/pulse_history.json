@@ -162,6 +162,12 @@
       "rep_id": "zack",
       "pulse_id": "2026-06-01-zack",
       "date": "2026-06-01"
+    },
+    {
+      "customer_id": "176704000003383631",
+      "rep_id": "henry",
+      "pulse_id": "2026-06-02-henry",
+      "date": "2026-06-02"
     }
   ]
 }
