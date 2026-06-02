@@ -152,7 +152,10 @@
       "customer_id": "176704000146675001",
       "rep_id": "henry",
       "pulse_id": "2026-06-01-henry",
-      "date": "2026-06-01"
+      "date": "2026-06-01",
+      "action": "edited",
+      "action_at": "2026-06-01",
+      "edited_text": "Hey John! Just thinking about you.\r\nHope the system is treating you well. Let me know if you need anything...\r\n#COMMENT (note font choice)"
     },
     {
       "customer_id": "176704000315026064",
