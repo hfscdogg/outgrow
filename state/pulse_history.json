@@ -187,7 +187,9 @@
       "customer_id": "176704000003384317",
       "rep_id": "henry",
       "pulse_id": "2026-06-04-henry",
-      "date": "2026-06-04"
+      "date": "2026-06-04",
+      "action": "sent",
+      "action_at": "2026-06-04"
     }
   ]
 }
