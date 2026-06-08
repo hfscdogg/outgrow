@@ -195,7 +195,10 @@
       "customer_id": "176704000003382585",
       "rep_id": "henry",
       "pulse_id": "2026-06-05-henry",
-      "date": "2026-06-05"
+      "date": "2026-06-05",
+      "action": "skipped",
+      "action_at": "2026-06-05",
+      "skip_reason": "low threshold\r\n\r\n\r\n\r\n- Henry\r\n\r\n\r\n\r\nHENRY CLIFFORD | CEO\r\nOffice: 804-937-9001\r\nEmail: henry@getlivewire.com\r\n\r\nNEED SERVICE? BOOK ONLINE HERE! <https://www.getlivewire.com/bookings/>\r\nBOOK AN APPOINTMENT <https://calendar.app.google/ARAq8nqA3CNvQPhJ6> *WITH\r\nME*"
     }
   ]
 }
