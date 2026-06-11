@@ -220,6 +220,12 @@
       "rep_id": "henry",
       "pulse_id": "2026-06-10-henry",
       "date": "2026-06-10"
+    },
+    {
+      "customer_id": "176704000022132001",
+      "rep_id": "henry",
+      "pulse_id": "2026-06-11-henry",
+      "date": "2026-06-11"
     }
   ]
 }
