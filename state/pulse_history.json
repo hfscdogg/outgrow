@@ -262,6 +262,12 @@
       "rep_id": "henry",
       "pulse_id": "2026-06-17-henry",
       "date": "2026-06-17"
+    },
+    {
+      "customer_id": "176704000018307859",
+      "rep_id": "henry",
+      "pulse_id": "2026-06-18-henry",
+      "date": "2026-06-18"
     }
   ]
 }
