@@ -262,6 +262,31 @@ def test_briefing_renders_basic_fields() -> None:
     assert ("Lifetime spend", draft.lifetime_spend_label) in mail.rows
 
 
+def test_briefing_carries_customer_email_and_first_name() -> None:
+    """The mailer briefing carries the customer's email + first name so the
+    pulse can render a one-click 'Send to customer' mailto: button."""
+    zoho = _zoho()
+    zoho["Email"] = "jane@example.com"
+    zoho["First_Name"] = "Jane"
+    _, mail = build_briefing(
+        _customer(),
+        zoho_contact=zoho,
+        qbo_horizon=date(2017, 1, 1),
+    )
+    assert mail.email == "jane@example.com"
+    assert mail.first_name == "Jane"
+
+
+def test_briefing_email_and_first_name_none_when_zoho_lacks_them() -> None:
+    _, mail = build_briefing(
+        _customer(),
+        zoho_contact=_zoho(),  # no Email / First_Name keys
+        qbo_horizon=date(2017, 1, 1),
+    )
+    assert mail.email is None
+    assert mail.first_name is None
+
+
 def test_briefing_legacy_disclosure_when_pre_qbo_horizon() -> None:
     draft, _ = build_briefing(
         _customer(first_known_contact_at=date(2003, 6, 1)),

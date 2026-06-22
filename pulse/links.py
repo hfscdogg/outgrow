@@ -67,3 +67,25 @@ def build_mailto(
     if body is not None:
         params.append(("body", body))
     return f"mailto:{control_address}?{urllib.parse.urlencode(params)}"
+
+
+def build_customer_compose_mailto(
+    *,
+    to_address: str,
+    body: str,
+    subject: str | None = None,
+) -> str:
+    """Build a ``mailto:<customer>`` URL that pre-fills an outbound draft.
+
+    This is the "send draft to customer" link — it opens a fresh email TO
+    the customer (NOT the control inbox) with the AI draft already in the
+    body. Rep tweaks if needed and hits send. No HMAC token: this email
+    never re-enters the inbox poller, it goes straight to the customer.
+
+    ``subject`` is optional; some reps prefer to compose their own.
+    """
+    params: list[tuple[str, str]] = []
+    if subject is not None:
+        params.append(("subject", subject))
+    params.append(("body", body))
+    return f"mailto:{to_address}?{urllib.parse.urlencode(params)}"
