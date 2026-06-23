@@ -218,7 +218,9 @@ def run_one_pulse(
         secret=secret,
         control_address=control_address,
         pulse_id=pulse_id,
+        draft_text=gen.draft_text,
         suggested_rep=suggested_rep,
+        customer_email=mail_brief.email,
     )
     pulse_email = build_pulse_email(
         pulse_id=pulse_id,

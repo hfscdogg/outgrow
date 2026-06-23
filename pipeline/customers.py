@@ -297,5 +297,12 @@ def build_briefing(
         source_dollar_amounts=frozenset({_format_dollars(customer.ltv_cents)}),
     )
     dormancy_label = _humanize_ago(customer.last_purchase_at, today) if today else None
-    mail = MailBriefing(name=name, rows=tuple(rows), dormancy_label=dormancy_label)
+    first_name = _stripped(zoho_contact, "First_Name")
+    mail = MailBriefing(
+        name=name,
+        rows=tuple(rows),
+        dormancy_label=dormancy_label,
+        email=email,
+        first_name=first_name,
+    )
     return draft, mail

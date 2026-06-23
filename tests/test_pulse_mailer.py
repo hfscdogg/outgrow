@@ -37,6 +37,7 @@ ALLOWLIST_PATH = REPO_ROOT / "config" / "recipient_allowlist.yaml"
 OWNER_EMAIL = "henry@getlivewire.com"
 ZACK_EMAIL = "zack@getlivewire.com"
 SECRET = b"\x00" * 32
+DRAFT = "Hey Jane, hope your system's running well — let me know if you need anything."
 
 
 def _briefing() -> CustomerBriefing:
@@ -89,11 +90,13 @@ def test_build_action_links_emits_three_for_high_confidence_match() -> None:
         secret=SECRET,
         control_address="outgrow-control@getlivewire.com",
         pulse_id="42",
+        draft_text=DRAFT,
     )
     assert links.sent_as_is.startswith("mailto:")
     assert links.sent_with_edits.startswith("mailto:")
     assert links.skip_today.startswith("mailto:")
     assert links.reassign is None
+    assert links.compose_to_customer is None  # no customer_email passed
 
 
 def test_build_action_links_emits_reassign_when_suggested_rep_given() -> None:
@@ -101,10 +104,43 @@ def test_build_action_links_emits_reassign_when_suggested_rep_given() -> None:
         secret=SECRET,
         control_address="outgrow-control@getlivewire.com",
         pulse_id="42",
+        draft_text=DRAFT,
         suggested_rep="zack",
     )
     assert links.reassign is not None
     assert "zack" in links.reassign
+
+
+def test_build_action_links_pre_fills_edited_body_with_draft() -> None:
+    """EDITED reply pre-loaded with the draft so the rep edits in place
+    instead of copy-pasting from the pulse card."""
+    links = build_action_links(
+        secret=SECRET,
+        control_address="control@example.com",
+        pulse_id="42",
+        draft_text=DRAFT,
+    )
+    assert "body=" in links.sent_with_edits
+    # urlencoded body — check a distinctive draft fragment survives the round-trip.
+    assert "system" in links.sent_with_edits
+    assert "running" in links.sent_with_edits
+
+
+def test_build_action_links_emits_compose_link_when_customer_email_present() -> None:
+    """``compose_to_customer`` opens a fresh email TO the customer with the
+    draft pre-filled — separate from the control-mailbox action links."""
+    links = build_action_links(
+        secret=SECRET,
+        control_address="control@example.com",
+        pulse_id="42",
+        draft_text=DRAFT,
+        customer_email="jane@example.com",
+    )
+    assert links.compose_to_customer is not None
+    assert links.compose_to_customer.startswith("mailto:jane@example.com")
+    assert "body=" in links.compose_to_customer
+    # Compose link must NOT carry the HMAC token (it never re-enters the poller).
+    assert "pulse_42" not in links.compose_to_customer
 
 
 def test_action_link_tokens_are_verifiable() -> None:
@@ -114,6 +150,7 @@ def test_action_link_tokens_are_verifiable() -> None:
         secret=SECRET,
         control_address="control@example.com",
         pulse_id="abc123",
+        draft_text=DRAFT,
     )
     # Subject in the URL is "SENT pulse_abc123 <token>"; pull token out.
     sent_url = links.sent_as_is
@@ -144,11 +181,13 @@ def test_should_not_cc_owner_when_review_exhausted() -> None:
 # ---- build_pulse_email ----------------------------------------------------
 
 
-def _links() -> ActionLinks:
+def _links(*, customer_email: str | None = None) -> ActionLinks:
     return build_action_links(
         secret=SECRET,
         control_address="outgrow-control@getlivewire.com",
         pulse_id="p1",
+        draft_text=DRAFT,
+        customer_email=customer_email,
     )
 
 
@@ -245,6 +284,7 @@ def test_render_body_includes_reassign_when_link_present() -> None:
         secret=SECRET,
         control_address="outgrow-control@getlivewire.com",
         pulse_id="p1",
+        draft_text=DRAFT,
         suggested_rep="zack",
     )
     body = render_pulse_body(
@@ -437,6 +477,52 @@ def test_render_pulse_html_includes_draft_text_and_action_links() -> None:
     for url in (links.sent_as_is, links.sent_with_edits, links.skip_today):
         prefix = url.split("&", 1)[0]
         assert prefix in html_body, f"missing action link prefix: {prefix}"
+
+
+def test_render_pulse_html_includes_send_to_customer_button_when_email_present() -> None:
+    """When the briefing carries a customer email, the rendered pulse
+    surfaces a primary 'Send to customer' button above the logging buttons.
+    """
+    links = _links(customer_email="jane@example.com")
+    html_body = render_pulse_html(
+        rep_first_name="Henry",
+        briefing=_html_briefing(),
+        draft_text="Hey Jane — checking in.",
+        links=links,
+        today=date(2026, 5, 14),
+    )
+    assert "Send to customer" in html_body
+    assert "mailto:jane@example.com" in html_body
+    # The compose-link must be the primary CTA when present; "Sent as-is"
+    # downgrades to a secondary (white) button.
+    assert "Then log what you did" in html_body
+
+
+def test_render_pulse_html_omits_send_to_customer_button_without_email() -> None:
+    """No email on file → no button (vs. a broken mailto: with empty addr)."""
+    links = _links(customer_email=None)
+    html_body = render_pulse_html(
+        rep_first_name="Henry",
+        briefing=_html_briefing(),
+        draft_text="Hey.",
+        links=links,
+        today=date(2026, 5, 14),
+    )
+    assert "Send to customer" not in html_body
+
+
+def test_render_pulse_body_lists_send_to_customer_when_present() -> None:
+    """Plain-text fallback must also expose the compose link, since reps
+    on plain-text clients still benefit from one-click compose.
+    """
+    body = render_pulse_body(
+        rep_first_name="Henry",
+        briefing=_html_briefing(),
+        draft_text="Hey.",
+        links=_links(customer_email="jane@example.com"),
+    )
+    assert "Send to customer:" in body
+    assert "mailto:jane@example.com" in body
 
 
 def test_render_pulse_html_escapes_customer_name() -> None:

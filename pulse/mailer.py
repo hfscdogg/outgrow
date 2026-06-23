@@ -28,6 +28,7 @@ from pulse.links import (
     ACTION_REASSIGN,
     ACTION_SENT,
     ACTION_SKIPPED,
+    build_customer_compose_mailto,
     build_mailto,
     sign_action,
 )
@@ -35,9 +36,21 @@ from pulse.links import (
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_ALLOWLIST_PATH = REPO_ROOT / "config" / "recipient_allowlist.yaml"
 
-EDITED_BODY_TEMPLATE = "Paste the final text you sent below:\n\n"
 SKIPPED_BODY_TEMPLATE = "Reason (optional):\n\n"
 REASSIGN_BODY_TEMPLATE = "Reassign to: {suggested_rep}\n\n"
+
+
+def _build_edited_body(draft_text: str) -> str:
+    """EDITED reply body — pre-fills the draft so the rep can edit in place
+    and send to record the actual text that went to the customer (vs. an
+    empty "paste here" prompt that forced a copy/paste round trip).
+    """
+    return (
+        "Edit below to match what you actually sent the customer, then send.\n"
+        "(This goes to the control mailbox to record your action — NOT to the customer.)\n\n"
+        f"{draft_text}\n"
+    )
+
 
 SmtpSender = Callable[[EmailMessage], None]
 
@@ -73,6 +86,11 @@ class CustomerBriefing:
     # Computed upstream from ``last_purchase_at``; absent when the customer
     # has no recorded purchase. Renderers fall back to a name-only headline.
     dormancy_label: str | None = None
+    # Customer's email + first name, when Zoho has them. Powers the one-click
+    # "Send draft to customer" mailto: button. When email is absent the
+    # button is omitted from the rendered pulse.
+    email: str | None = None
+    first_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -81,6 +99,9 @@ class ActionLinks:
     sent_with_edits: str
     skip_today: str
     reassign: str | None = None
+    # mailto: opening a fresh email TO the customer, pre-filled with the AI
+    # draft. ``None`` when the customer has no email on file (Zoho gap).
+    compose_to_customer: str | None = None
 
 
 @dataclass(frozen=True)
@@ -124,9 +145,18 @@ def build_action_links(
     secret: bytes,
     control_address: str,
     pulse_id: str,
+    draft_text: str,
     suggested_rep: str | None = None,
+    customer_email: str | None = None,
 ) -> ActionLinks:
-    """Generate the three (or four) signed ``mailto:`` action links."""
+    """Generate the signed ``mailto:`` action links plus the optional
+    one-click compose-to-customer link.
+
+    ``draft_text`` is embedded into the EDITED body so the rep can edit
+    in place rather than copy/paste from the pulse. ``customer_email``,
+    when present, powers the "Send draft to customer" button (a fresh
+    mailto: to the customer with the draft pre-filled).
+    """
 
     def link(action: str, body: str | None = None) -> str:
         token = sign_action(secret, action, pulse_id)
@@ -143,11 +173,17 @@ def build_action_links(
         if suggested_rep
         else None
     )
+    compose_to_customer = (
+        build_customer_compose_mailto(to_address=customer_email, body=draft_text)
+        if customer_email
+        else None
+    )
     return ActionLinks(
         sent_as_is=link(ACTION_SENT),
-        sent_with_edits=link(ACTION_EDITED, body=EDITED_BODY_TEMPLATE),
+        sent_with_edits=link(ACTION_EDITED, body=_build_edited_body(draft_text)),
         skip_today=link(ACTION_SKIPPED, body=SKIPPED_BODY_TEMPLATE),
         reassign=reassign,
+        compose_to_customer=compose_to_customer,
     )
 
 
@@ -166,7 +202,11 @@ def render_pulse_body(
     for key, value in briefing.rows:
         rows.append(f"  {key}: {value}")
     rows.extend(["", "Suggested text (in your voice):", "", draft_text, ""])
-    rows.append("Tap one when you're done — your mail app will pre-fill the reply:")
+    if links.compose_to_customer:
+        rows.append("One-click compose (pre-fills a new email TO the customer):")
+        rows.append(f"  Send to customer:  {links.compose_to_customer}")
+        rows.append("")
+    rows.append("Then log what you did — these go to the control mailbox:")
     rows.append(f"  Sent as-is:        {links.sent_as_is}")
     rows.append(f"  Sent with edits:   {links.sent_with_edits}")
     rows.append(f"  Skip today:        {links.skip_today}")
@@ -256,14 +296,30 @@ def render_pulse_html(
         for key, value in briefing.rows
     )
 
-    buttons = [
-        _action_button(links.sent_as_is, "Sent as-is", primary=True),
+    # "Send to customer" is the primary CTA when we have the customer's email:
+    # the rep clicks once, gets a pre-filled outbound draft, edits, hits send.
+    # The control-mailbox action buttons sit below for after-the-fact logging.
+    compose_button_html = (
+        f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">'
+        f"<tr><td>"
+        f"{_action_button(links.compose_to_customer, 'Send to customer', primary=True)}"
+        f"</td></tr></table>"
+        if links.compose_to_customer
+        else ""
+    )
+
+    # When the compose button is present it's the primary CTA; downgrade
+    # "Sent as-is" to secondary so the visual hierarchy reads top-to-bottom
+    # (one-click outbound first, then logging buttons).
+    sent_as_is_primary = links.compose_to_customer is None
+    log_buttons = [
+        _action_button(links.sent_as_is, "Sent as-is", primary=sent_as_is_primary),
         _action_button(links.sent_with_edits, "Sent w/ edits", primary=False),
         _action_button(links.skip_today, "Skip today", primary=False),
     ]
     if links.reassign:
-        buttons.append(_action_button(links.reassign, "Not my customer", primary=False))
-    buttons_html = "".join(f'<td style="padding:6px;">{btn}</td>' for btn in buttons)
+        log_buttons.append(_action_button(links.reassign, "Not my customer", primary=False))
+    buttons_html = "".join(f'<td style="padding:6px;">{btn}</td>' for btn in log_buttons)
 
     draft_safe = html.escape(draft_text).replace("\n", "<br>")
 
@@ -310,8 +366,9 @@ def render_pulse_html(
             {draft_safe}
           </td></tr>
         </table>
+        {compose_button_html}
         <p style="margin:24px 0 8px 0;color:{_COLOR_MUTED};font-family:{_SANS_STACK};font-size:12px;">
-          Tap one when you&rsquo;re done &mdash; your mail app will pre-fill the reply:
+          Then log what you did &mdash; these reply to the control mailbox:
         </p>
         <table role="presentation" cellpadding="0" cellspacing="0">
           <tr>{buttons_html}</tr>
