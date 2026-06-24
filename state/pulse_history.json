@@ -298,6 +298,12 @@
       "action": "skipped",
       "action_at": "2026-06-23",
       "skip_reason": "Spend too low."
+    },
+    {
+      "customer_id": "176704000022241081",
+      "rep_id": "henry",
+      "pulse_id": "2026-06-24-henry",
+      "date": "2026-06-24"
     }
   ]
 }
