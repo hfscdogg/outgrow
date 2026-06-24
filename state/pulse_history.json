@@ -294,7 +294,10 @@
       "customer_id": "176704000003381187",
       "rep_id": "henry",
       "pulse_id": "2026-06-23-henry",
-      "date": "2026-06-23"
+      "date": "2026-06-23",
+      "action": "skipped",
+      "action_at": "2026-06-23",
+      "skip_reason": "Spend too low."
     }
   ]
 }
