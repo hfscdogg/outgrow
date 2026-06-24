@@ -485,4 +485,4 @@ def test_load_ranking_config_reads_shipped_config() -> None:
     assert cfg.too_recent_days == 30
     assert cfg.cold_floor_factor == 0.5
     assert cfg.min_rep_match_confidence == 0.5
-    assert cfg.min_ltv_cents == 100_000  # $1,000 floor
+    assert cfg.min_ltv_cents == 200_000  # $2,000 floor

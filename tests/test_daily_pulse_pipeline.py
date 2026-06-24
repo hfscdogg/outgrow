@@ -119,6 +119,7 @@ def _zack_loaded() -> LoadedRep:
         ),
         voice={"formality": "casual", "typical_greetings": ["hey"]},
         zoho_user_id="u_zack",
+        zoho_user_id_aliases=(),
         ooo_until=None,
         paused_until=None,
     )
@@ -199,6 +200,7 @@ def test_run_pipeline_skips_inactive_rep() -> None:
         profile=rep.profile,
         voice=rep.voice,
         zoho_user_id=rep.zoho_user_id,
+        zoho_user_id_aliases=rep.zoho_user_id_aliases,
         ooo_until=date(2026, 5, 10),
         paused_until=None,
     )
@@ -399,6 +401,7 @@ def _henry_loaded() -> LoadedRep:
         ),
         voice={"formality": "casual", "typical_greetings": ["hey"]},
         zoho_user_id="u_henry",
+        zoho_user_id_aliases=(),
         ooo_until=None,
         paused_until=None,
     )

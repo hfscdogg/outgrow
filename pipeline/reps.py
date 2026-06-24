@@ -44,6 +44,10 @@ class LoadedRep:
     profile: RepProfile
     voice: dict[str, Any]
     zoho_user_id: str
+    # Extra Zoho user IDs whose customers also flow to this rep. Used when
+    # a former rep's book has been verbally reassigned but the Owner field
+    # in Zoho hasn't been mass-updated yet. Empty for greenfield reps.
+    zoho_user_id_aliases: tuple[str, ...]
     ooo_until: date | None
     paused_until: date | None
 
@@ -69,10 +73,13 @@ def load_rep(path: Path) -> LoadedRep:
         cc_review_remaining=int(payload.get("cc_review_remaining", 0)),
     )
     voice = {k: payload[k] for k in VOICE_FIELDS if k in payload}
+    aliases_raw = payload.get("zoho_user_id_aliases") or []
+    aliases = tuple(str(a).strip() for a in aliases_raw if str(a).strip())
     return LoadedRep(
         profile=profile,
         voice=voice,
         zoho_user_id=str(payload["zoho_user_id"]),
+        zoho_user_id_aliases=aliases,
         ooo_until=_parse_optional_date(payload.get("ooo_until")),
         paused_until=_parse_optional_date(payload.get("paused_until")),
     )
@@ -94,5 +101,16 @@ def is_active_today(rep: LoadedRep, today: date) -> bool:
 
 
 def zoho_user_to_rep_id_map(reps: list[LoadedRep]) -> dict[str, str]:
-    """Build the ``Zoho Owner ID -> internal rep_id`` map."""
-    return {r.zoho_user_id: r.profile.rep_id for r in reps}
+    """Build the ``Zoho Owner ID -> internal rep_id`` map.
+
+    Each rep registers their primary ``zoho_user_id`` plus any aliases
+    (former reps whose books were verbally reassigned). Later entries
+    win on duplicates — list aliases on the rep who currently owns the
+    book.
+    """
+    mapping: dict[str, str] = {}
+    for r in reps:
+        mapping[r.zoho_user_id] = r.profile.rep_id
+        for alias in r.zoho_user_id_aliases:
+            mapping[alias] = r.profile.rep_id
+    return mapping

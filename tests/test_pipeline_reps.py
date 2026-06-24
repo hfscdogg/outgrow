@@ -146,11 +146,63 @@ def _rep(**overrides) -> LoadedRep:
         "profile": RepProfile(rep_id="zack", email="zack@getlivewire.com", first_name="Zack"),
         "voice": {},
         "zoho_user_id": "u1",
+        "zoho_user_id_aliases": (),
         "ooo_until": None,
         "paused_until": None,
     }
     base.update(overrides)
     return LoadedRep(**base)  # type: ignore[arg-type]
+
+
+# ---- zoho_user_id_aliases --------------------------------------------------
+
+
+def test_load_rep_parses_zoho_user_id_aliases(tmp_path: Path) -> None:
+    """Optional ``zoho_user_id_aliases`` list lets a rep claim former reps'
+    books without mass-updating the Owner field in Zoho."""
+    p = _write(
+        tmp_path / "zack.yaml",
+        _full_payload(zoho_user_id_aliases=["176704000111111111", "176704000222222222"]),
+    )
+    rep = load_rep(p)
+    assert rep.zoho_user_id_aliases == ("176704000111111111", "176704000222222222")
+
+
+def test_load_rep_defaults_aliases_to_empty_tuple_when_omitted(tmp_path: Path) -> None:
+    p = _write(tmp_path / "zack.yaml", _full_payload())
+    rep = load_rep(p)
+    assert rep.zoho_user_id_aliases == ()
+
+
+def test_load_rep_drops_blank_alias_entries(tmp_path: Path) -> None:
+    """Defensive: a YAML with a stray blank string in the list shouldn't
+    register an empty Owner ID and gobble unmapped contacts."""
+    p = _write(
+        tmp_path / "zack.yaml",
+        _full_payload(zoho_user_id_aliases=["176704000111111111", "", "  "]),
+    )
+    rep = load_rep(p)
+    assert rep.zoho_user_id_aliases == ("176704000111111111",)
+
+
+def test_zoho_user_to_rep_id_map_registers_aliases() -> None:
+    """All of: primary + every alias map to the same rep_id."""
+    zack = _rep(
+        profile=RepProfile(rep_id="zack", email="zack@getlivewire.com", first_name="Zack"),
+        zoho_user_id="z_primary",
+        zoho_user_id_aliases=("andre_uid", "brad_uid"),
+    )
+    henry = _rep(
+        profile=RepProfile(rep_id="henry", email="henry@getlivewire.com", first_name="Henry"),
+        zoho_user_id="h_primary",
+    )
+    mapping = zoho_user_to_rep_id_map([zack, henry])
+    assert mapping == {
+        "z_primary": "zack",
+        "andre_uid": "zack",
+        "brad_uid": "zack",
+        "h_primary": "henry",
+    }
 
 
 def test_is_active_when_no_ooo_or_paused() -> None:
@@ -183,6 +235,7 @@ def test_zoho_user_to_rep_id_map_builds_lookup_from_loaded_reps() -> None:
             profile=RepProfile(rep_id="henry", email="henry@getlivewire.com", first_name="Henry"),
             voice={},
             zoho_user_id="u2",
+            zoho_user_id_aliases=(),
             ooo_until=None,
             paused_until=None,
         ),

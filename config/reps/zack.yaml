@@ -10,6 +10,17 @@ first_name: Zack
 # Zack Reichert. Zoho user ID from Zoho CRM > Settings > Users.
 zoho_user_id: "176704000151417023"
 
+# Customers owned by former reps that have been verbally reassigned to
+# Zack but whose Zoho Owner field hasn't been mass-updated yet. The
+# orchestrator treats any of these Zoho user IDs as "Zack" when building
+# the per-rep customer pool. Find the IDs in Zoho CRM > Setup > Users —
+# click the user; the URL ends with the ID (looks like 176704000XXXXXXXX).
+# Or run `uv run python -m scripts.dump_zoho_owners` after a sync to
+# print every owner with contact count.
+#
+# TODO: paste Andre Saunders + Brad Camp's user IDs here.
+zoho_user_id_aliases: []
+
 # Owner CC'd on the first 5 sends per docs/plan.md Phase 1 review window.
 cc_review_remaining: 5
 
