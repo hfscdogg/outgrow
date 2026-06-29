@@ -323,6 +323,12 @@
       "date": "2026-06-26",
       "action": "sent",
       "action_at": "2026-06-26"
+    },
+    {
+      "customer_id": "176704000003382367",
+      "rep_id": "henry",
+      "pulse_id": "2026-06-29-henry",
+      "date": "2026-06-29"
     }
   ]
 }
