@@ -49,7 +49,7 @@ rep_match:
 # filtered the same as a modern one. If pre-QBO customers should pass,
 # either backfill their LTV or lower this floor.
 eligibility:
-  min_lifetime_spend_cents: 100000  # $1,000
+  min_lifetime_spend_cents: 200000  # $2,000
 
 # Reserved for future soft-suppression (recently-sent etc.). Hard suppressions
 # (open_ticket, active_deal, opted_out) filter the customer out upstream and
