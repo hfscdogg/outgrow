@@ -20,11 +20,14 @@ on:
   repository_dispatch:
     types: [inbox-poll]
 
-# Serialize polls so two near-simultaneous triggers don't race on the
-# git push of pulse_history.json. cancel-in-progress: false because
-# we'd rather queue than kill a poll that already fetched messages.
+# Shared concurrency group with daily-dispatch: both commit
+# state/pulse_history.json back to main, so they must not run at the same
+# time or the second push fails non-fast-forward (the Jun 29 dispatch
+# failure). One group serializes every state writer repo-wide.
+# cancel-in-progress: false because we'd rather queue than kill a poll that
+# already fetched messages.
 concurrency:
-  group: inbox-poll
+  group: outgrow-state-write
   cancel-in-progress: false
 
 jobs:
@@ -64,12 +67,27 @@ jobs:
       - name: Commit updated pulse history
         if: always()
         run: |
-          if [ -n "$(git status --porcelain state/pulse_history.json)" ]; then
-            git config user.name "outgrow-bot"
-            git config user.email "outgrow-bot@users.noreply.github.com"
-            git add state/pulse_history.json
-            git commit -m "chore(inbox): record rep actions $(date -u +%Y-%m-%dT%H:%MZ)"
-            git push
-          else
+          if [ -z "$(git status --porcelain state/pulse_history.json)" ]; then
             echo "no action updates; skipping commit"
+            exit 0
           fi
+          git config user.name "outgrow-bot"
+          git config user.email "outgrow-bot@users.noreply.github.com"
+          git add state/pulse_history.json
+          git commit -m "chore(inbox): record rep actions $(date -u +%Y-%m-%dT%H:%MZ)"
+          # Shared concurrency group keeps state writers serialized; rebase-and-
+          # retry as defense in depth so a moved main replays our commit instead
+          # of failing the poll on a non-fast-forward.
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              echo "pushed rep actions on attempt $attempt"
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt); rebasing onto latest main"
+            if ! git pull --rebase --autostash origin main; then
+              git rebase --abort 2>/dev/null || true
+              echo "::warning::rebase hit a conflict on pulse_history.json; retrying"
+            fi
+          done
+          echo "::error::failed to push rep actions after 5 attempts"
+          exit 1

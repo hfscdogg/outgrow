@@ -33,13 +33,16 @@ on:
     - cron: "43 11 * * 1-5"
     - cron: "13 12 * * 1-5"
 
-# Only one daily-dispatch instance at a time. Without this, the cron and
-# a manual workflow_dispatch firing within seconds of each other would
-# race when committing state/pulse_history.json back to main — the second
-# push would fail with non-fast-forward. ``cancel-in-progress: false`` so
-# we queue rather than killing the in-flight pulse mid-send.
+# Serialize ALL workflows that commit state/pulse_history.json back to main
+# (daily-dispatch + inbox-poll) under one shared concurrency group. They both
+# git-push the same file; in separate groups they could run simultaneously and
+# the second push would fail non-fast-forward (this took down the Jun 29 run:
+# an hourly inbox-poll pushed mid-dispatch). A single group queues them so each
+# run checks out a main that already contains the previous writer's commit.
+# ``cancel-in-progress: false`` so we queue rather than killing an in-flight
+# pulse mid-send.
 concurrency:
-  group: daily-dispatch
+  group: outgrow-state-write
   cancel-in-progress: false
 
 jobs:
@@ -137,12 +140,28 @@ jobs:
       - name: Commit updated pulse history
         if: always()
         run: |
-          if [ -n "$(git status --porcelain state/pulse_history.json)" ]; then
-            git config user.name "outgrow-bot"
-            git config user.email "outgrow-bot@users.noreply.github.com"
-            git add state/pulse_history.json
-            git commit -m "chore(pulse): record sent customers $(date -u +%Y-%m-%d)"
-            git push
-          else
+          if [ -z "$(git status --porcelain state/pulse_history.json)" ]; then
             echo "no pulse history changes; skipping commit"
+            exit 0
           fi
+          git config user.name "outgrow-bot"
+          git config user.email "outgrow-bot@users.noreply.github.com"
+          git add state/pulse_history.json
+          git commit -m "chore(pulse): record sent customers $(date -u +%Y-%m-%d)"
+          # The shared concurrency group should keep state writers serialized,
+          # but rebase-and-retry as defense in depth: if main moved under us
+          # (e.g. a branch-protection-exempt push), replay our commit on top
+          # rather than failing the whole dispatch on a non-fast-forward.
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              echo "pushed pulse history on attempt $attempt"
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt); rebasing onto latest main"
+            if ! git pull --rebase --autostash origin main; then
+              git rebase --abort 2>/dev/null || true
+              echo "::warning::rebase hit a conflict on pulse_history.json; retrying"
+            fi
+          done
+          echo "::error::failed to push pulse history after 5 attempts"
+          exit 1
