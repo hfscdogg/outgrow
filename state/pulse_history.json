@@ -353,6 +353,18 @@
       "date": "2026-06-30",
       "action": "skipped",
       "action_at": "2026-06-30"
+    },
+    {
+      "customer_id": "176704000000065648",
+      "rep_id": "henry",
+      "pulse_id": "2026-07-01-henry",
+      "date": "2026-07-01"
+    },
+    {
+      "customer_id": "176704000264258089",
+      "rep_id": "zack",
+      "pulse_id": "2026-07-01-zack",
+      "date": "2026-07-01"
     }
   ]
 }
