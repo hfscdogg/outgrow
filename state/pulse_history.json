@@ -336,7 +336,9 @@
       "customer_id": "176704000274623285",
       "rep_id": "zack",
       "pulse_id": "2026-06-29-zack",
-      "date": "2026-06-29"
+      "date": "2026-06-29",
+      "action": "sent",
+      "action_at": "2026-06-30"
     },
     {
       "customer_id": "176704000022676333",
@@ -348,7 +350,9 @@
       "customer_id": "176704000020988007",
       "rep_id": "zack",
       "pulse_id": "2026-06-30-zack",
-      "date": "2026-06-30"
+      "date": "2026-06-30",
+      "action": "skipped",
+      "action_at": "2026-06-30"
     }
   ]
 }
