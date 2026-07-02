@@ -368,6 +368,18 @@
       "rep_id": "zack",
       "pulse_id": "2026-07-01-zack",
       "date": "2026-07-01"
+    },
+    {
+      "customer_id": "176704000000068066",
+      "rep_id": "henry",
+      "pulse_id": "2026-07-02-henry",
+      "date": "2026-07-02"
+    },
+    {
+      "customer_id": "176704000026800001",
+      "rep_id": "zack",
+      "pulse_id": "2026-07-02-zack",
+      "date": "2026-07-02"
     }
   ]
 }
