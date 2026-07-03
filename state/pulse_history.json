@@ -386,6 +386,18 @@
       "action": "skipped",
       "action_at": "2026-07-02",
       "skip_reason": "Marshall's client who he's in active contact with"
+    },
+    {
+      "customer_id": "176704000000066474",
+      "rep_id": "henry",
+      "pulse_id": "2026-07-03-henry",
+      "date": "2026-07-03"
+    },
+    {
+      "customer_id": "176704000161422143",
+      "rep_id": "zack",
+      "pulse_id": "2026-07-03-zack",
+      "date": "2026-07-03"
     }
   ]
 }
