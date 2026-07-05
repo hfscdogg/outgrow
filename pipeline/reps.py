@@ -14,14 +14,18 @@ startup, not at 07:00 send time.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
 from pulse.mailer import RepProfile
+
+if TYPE_CHECKING:
+    from pipeline.suppressions import PulseEntry
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REPS_DIR = REPO_ROOT / "config" / "reps"
@@ -114,3 +118,34 @@ def zoho_user_to_rep_id_map(reps: list[LoadedRep]) -> dict[str, str]:
         for alias in r.zoho_user_id_aliases:
             mapping[alias] = r.profile.rep_id
     return mapping
+
+
+def apply_cc_review_progress(
+    reps: Sequence[LoadedRep], history: Iterable[PulseEntry]
+) -> list[LoadedRep]:
+    """Auto-expire each rep's owner-CC review window against pulse history.
+
+    ``cc_review_remaining`` in the rep YAML is the TOTAL number of review
+    sends desired (e.g. 5 = "CC the owner on my first 5 pulses"). Every
+    history entry for a rep is one sent pulse, so the effective remaining
+    is ``yaml_value - sent_count``, floored at 0. This replaces the manual
+    decrement the YAML comment promised "when Phase 2's per-rep state-store
+    ships" — pulse_history.json IS that store.
+
+    Note: history is pruned to the 90-day suppression window on write, so
+    a review target larger than ~65 weekday pulses would never be reached;
+    review windows are single-digit in practice.
+    """
+    sent_counts: dict[str, int] = {}
+    for e in history:
+        sent_counts[e.rep_id] = sent_counts.get(e.rep_id, 0) + 1
+    adjusted: list[LoadedRep] = []
+    for rep in reps:
+        sent = sent_counts.get(rep.profile.rep_id, 0)
+        remaining = max(0, rep.profile.cc_review_remaining - sent)
+        if remaining == rep.profile.cc_review_remaining:
+            adjusted.append(rep)
+        else:
+            new_profile = replace(rep.profile, cc_review_remaining=remaining)
+            adjusted.append(replace(rep, profile=new_profile))
+    return adjusted

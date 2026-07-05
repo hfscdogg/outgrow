@@ -10,11 +10,13 @@ import yaml
 
 from pipeline.reps import (
     LoadedRep,
+    apply_cc_review_progress,
     is_active_today,
     load_rep,
     load_reps,
     zoho_user_to_rep_id_map,
 )
+from pipeline.suppressions import PulseEntry
 from pulse.mailer import RepProfile
 
 
@@ -203,6 +205,76 @@ def test_zoho_user_to_rep_id_map_registers_aliases() -> None:
         "brad_uid": "zack",
         "h_primary": "henry",
     }
+
+
+# ---- apply_cc_review_progress ------------------------------------------------
+
+
+def _hist(rep_id: str, pulse_date: date) -> PulseEntry:
+    return PulseEntry(
+        customer_id="c1",
+        rep_id=rep_id,
+        pulse_id=f"{pulse_date.isoformat()}-{rep_id}",
+        date=pulse_date,
+    )
+
+
+def _rep_with_cc(rep_id: str, remaining: int) -> LoadedRep:
+    return _rep(
+        profile=RepProfile(
+            rep_id=rep_id,
+            email=f"{rep_id}@getlivewire.com",
+            first_name=rep_id.title(),
+            cc_review_remaining=remaining,
+        )
+    )
+
+
+def test_cc_review_progress_subtracts_sent_pulses() -> None:
+    reps = [_rep_with_cc("zack", 5)]
+    history = [_hist("zack", date(2026, 6, d)) for d in (1, 2, 3)]
+    adjusted = apply_cc_review_progress(reps, history)
+    assert adjusted[0].profile.cc_review_remaining == 2
+
+
+def test_cc_review_progress_floors_at_zero() -> None:
+    reps = [_rep_with_cc("zack", 5)]
+    history = [_hist("zack", date(2026, 6, d)) for d in range(1, 16)]  # 15 sends
+    adjusted = apply_cc_review_progress(reps, history)
+    assert adjusted[0].profile.cc_review_remaining == 0
+
+
+def test_cc_review_progress_counts_per_rep_independently() -> None:
+    reps = [_rep_with_cc("zack", 5), _rep_with_cc("henry", 0)]
+    history = [_hist("zack", date(2026, 6, 1)), _hist("henry", date(2026, 6, 1))]
+    adjusted = apply_cc_review_progress(reps, history)
+    by_id = {r.profile.rep_id: r.profile.cc_review_remaining for r in adjusted}
+    assert by_id == {"zack": 4, "henry": 0}
+
+
+def test_cc_review_progress_no_history_leaves_reps_untouched() -> None:
+    reps = [_rep_with_cc("zack", 5)]
+    adjusted = apply_cc_review_progress(reps, [])
+    assert adjusted[0] is reps[0]  # unchanged object, not a copy
+    assert adjusted[0].profile.cc_review_remaining == 5
+
+
+def test_cc_review_progress_preserves_non_profile_fields() -> None:
+    rep = _rep(
+        profile=RepProfile(
+            rep_id="zack",
+            email="zack@getlivewire.com",
+            first_name="Zack",
+            cc_review_remaining=5,
+        ),
+        zoho_user_id="z_primary",
+        zoho_user_id_aliases=("andre_uid",),
+    )
+    adjusted = apply_cc_review_progress([rep], [_hist("zack", date(2026, 6, 1))])
+    assert adjusted[0].zoho_user_id == "z_primary"
+    assert adjusted[0].zoho_user_id_aliases == ("andre_uid",)
+    assert adjusted[0].voice == rep.voice
+    assert adjusted[0].profile.cc_review_remaining == 4
 
 
 def test_is_active_when_no_ooo_or_paused() -> None:

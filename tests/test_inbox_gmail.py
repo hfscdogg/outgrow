@@ -225,3 +225,36 @@ def test_live_client_get_message_projects_payload_into_gmail_message(
     assert msg.to == "henry+outgrow@getlivewire.com"
     assert msg.body_text == "body content"
     assert msg.received_at == "Fri, 22 May 2026 10:55:00 -0400"
+
+
+def test_live_client_search_message_ids_paginates_raw_query(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """search_message_ids passes the raw q= through and walks nextPageToken —
+    the BCC auto-log pass depends on both."""
+    captured_urls: list[str] = []
+    responses = iter(
+        [
+            _fake_response(b'{"access_token": "tok"}'),
+            _fake_response(
+                json.dumps({"messages": [{"id": "m1"}], "nextPageToken": "p2"}).encode()
+            ),
+            _fake_response(json.dumps({"messages": [{"id": "m2"}]}).encode()),
+        ]
+    )
+
+    def fake_urlopen(req: object, **_kwargs: object) -> object:
+        url = getattr(req, "full_url", "")
+        if url:
+            captured_urls.append(url)
+        return next(responses)
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    client = LiveGmailClient(
+        creds=GmailCreds(client_id="c", client_secret="s", refresh_token="r", user="henry@x")
+    )
+    ids = client.search_message_ids("deliveredto:henry+outgrow-sent-p1-abcd@x.com")
+    assert ids == ["m1", "m2"]
+    # The query must survive URL-encoding round-trip into the q= param.
+    search_urls = [u for u in captured_urls if "/messages?" in u]
+    assert any("deliveredto" in u for u in search_urls)

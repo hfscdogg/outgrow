@@ -18,7 +18,7 @@ from datetime import date, datetime
 from typing import Any
 
 from drafting.generator import CustomerBriefing as DraftBriefing
-from matching.identity import MatchResult
+from matching.identity import MatchResult, _normalize_e164_us
 from pulse.mailer import CustomerBriefing as MailBriefing
 from ranking.engine import Customer
 
@@ -298,11 +298,16 @@ def build_briefing(
     )
     dormancy_label = _humanize_ago(customer.last_purchase_at, today) if today else None
     first_name = _stripped(zoho_contact, "First_Name")
+    # Mobile only, no Phone fallback — Phone is often a landline/office line
+    # that can't receive SMS. Un-normalizable numbers -> None -> the mailer
+    # omits the "Text customer" button rather than emitting a dead sms: link.
+    mobile_e164 = _normalize_e164_us(mobile)
     mail = MailBriefing(
         name=name,
         rows=tuple(rows),
         dormancy_label=dormancy_label,
         email=email,
         first_name=first_name,
+        mobile_e164=mobile_e164,
     )
     return draft, mail

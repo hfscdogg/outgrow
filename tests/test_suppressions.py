@@ -212,3 +212,41 @@ def test_pulse_entry_with_action_skip_reason() -> None:
     )
     assert entry.skip_reason == "On vacation"
     assert entry.edited_text is None
+
+
+# ---- draft_text provenance (BCC auto-log schema) ---------------------------
+
+
+def test_pulse_entry_draft_text_roundtrips(tmp_path: Path) -> None:
+    entry = PulseEntry(
+        customer_id="c1",
+        rep_id="henry",
+        pulse_id="p1",
+        date=date(2026, 6, 29),
+        draft_text="Hey Jane! Hope the system is treating you well.",
+    )
+    path = tmp_path / "pulse_history.json"
+    save_history([entry], path)
+    loaded = load_history(path)
+    assert loaded[0].draft_text == "Hey Jane! Hope the system is treating you well."
+
+
+def test_pulse_entry_omits_draft_text_when_none(tmp_path: Path) -> None:
+    path = tmp_path / "pulse_history.json"
+    save_history([_entry()], path)
+    payload = json.loads(path.read_text())
+    assert "draft_text" not in payload["entries"][0]
+
+
+def test_with_action_preserves_draft_text() -> None:
+    """draft_text is send-time provenance, not an action field — the inbox
+    poller applying an action must not erase it."""
+    entry = PulseEntry(
+        customer_id="c1",
+        rep_id="henry",
+        pulse_id="p1",
+        date=date(2026, 6, 29),
+        draft_text="the draft",
+    )
+    updated = entry.with_action(action="sent", action_at=date(2026, 6, 29))
+    assert updated.draft_text == "the draft"

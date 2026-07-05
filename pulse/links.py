@@ -23,6 +23,12 @@ import urllib.parse
 
 ACTION_TOKEN_HEX_LEN = 32
 
+# BCC plus-addresses carry a shorter token: RFC 5321 caps the local part
+# at 64 octets, and ``{user}+outgrow-sent-{pulse_id}-`` already spends
+# ~35 of them. 16 hex chars (8 bytes) is still unguessable for this
+# threat model — and the poller exact-matches the full address anyway.
+BCC_TOKEN_HEX_LEN = 16
+
 ACTION_SENT = "sent"
 ACTION_EDITED = "edited"
 ACTION_SKIPPED = "skipped"
@@ -74,18 +80,57 @@ def build_customer_compose_mailto(
     to_address: str,
     body: str,
     subject: str | None = None,
+    bcc: str | None = None,
 ) -> str:
     """Build a ``mailto:<customer>`` URL that pre-fills an outbound draft.
 
     This is the "send draft to customer" link — it opens a fresh email TO
     the customer (NOT the control inbox) with the AI draft already in the
-    body. Rep tweaks if needed and hits send. No HMAC token: this email
-    never re-enters the inbox poller, it goes straight to the customer.
+    body. Rep tweaks if needed and hits send. No HMAC token in the visible
+    fields: subject and body reach the customer.
 
-    ``subject`` is optional; some reps prefer to compose their own.
+    ``bcc`` is the auto-log hook: a token-bearing plus-address of the
+    control mailbox (see ``build_sent_bcc_address``). The customer never
+    sees a BCC; the rep's sent email lands a copy in the control mailbox
+    where the inbox poller records the action — no second tap needed.
+    ``urlencode`` percent-encodes the ``+`` so mail clients don't read it
+    as a space.
     """
     params: list[tuple[str, str]] = []
     if subject is not None:
         params.append(("subject", subject))
+    if bcc is not None:
+        params.append(("bcc", bcc))
     params.append(("body", body))
     return f"mailto:{to_address}?{urllib.parse.urlencode(params)}"
+
+
+def build_customer_sms_uri(*, to_number: str, body: str) -> str:
+    """Build an ``sms:`` URI that opens the rep's messaging app with the
+    draft pre-filled for ``to_number`` (E.164).
+
+    Body is encoded with ``quote()`` — %20 for spaces — NOT ``urlencode``:
+    iOS Messages renders ``+`` literally instead of as a space, so the
+    form-encoding the mailto builders use would garble the text. No HMAC
+    token (goes to the customer, never re-enters the poller), and no
+    auto-log either — SMS has no BCC, so texts still need a manual
+    "Sent as-is" tap.
+    """
+    return f"sms:{to_number}?body={urllib.parse.quote(body)}"
+
+
+def build_sent_bcc_address(*, control_address: str, pulse_id: str, secret: bytes) -> str:
+    """Derive the per-pulse BCC address that auto-logs a compose send.
+
+    Shape: ``{user}+outgrow-sent-{pulse_id}-{token16}@{domain}``, where
+    ``user`` is the control address's local part with any existing plus-tag
+    stripped (``henry+outgrow@x.com`` -> ``henry``). Gmail delivers any
+    plus-tagged mail to the base mailbox, and the inbox poller recomputes
+    this exact address per un-actioned pulse and searches for it — so the
+    truncated token only needs to make the address unguessable, not carry
+    the full 32-hex verification strength of subject-line tokens.
+    """
+    local, _, domain = control_address.partition("@")
+    user = local.split("+", 1)[0]
+    token = sign_action(secret, ACTION_SENT, pulse_id)[:BCC_TOKEN_HEX_LEN]
+    return f"{user}+outgrow-sent-{pulse_id}-{token}@{domain}"

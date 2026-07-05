@@ -83,6 +83,7 @@ class GmailClient(Protocol):
     """Seam for injection. Real impl in ``LiveGmailClient``; tests fake it."""
 
     def list_unprocessed_message_ids(self, label_name: str) -> list[str]: ...
+    def search_message_ids(self, query: str) -> list[str]: ...
     def get_message(self, message_id: str) -> GmailMessage: ...
     def mark_processed(self, message_id: str) -> None: ...
 
@@ -266,6 +267,28 @@ class LiveGmailClient:
         # processed_label_id captured by closure — silence the unused warning
         # by referencing it; the variable's real role is "ensure it exists".
         _ = processed_label_id
+        return ids
+
+    def search_message_ids(self, query: str) -> list[str]:
+        """Return message IDs matching a raw Gmail search query.
+
+        Used by the BCC auto-log pass, which searches for the exact
+        per-pulse plus-address (``deliveredto:...``) rather than a label —
+        the Gmail filter that labels ``+outgrow`` action replies doesn't
+        match the variable ``+outgrow-sent-...`` BCC addresses.
+        """
+        ids: list[str] = []
+        page_token: str | None = None
+        while True:
+            params = {"q": query, "maxResults": "100"}
+            if page_token:
+                params["pageToken"] = page_token
+            payload = self._get(f"/users/{self.creds.user}/messages", params)
+            for m in payload.get("messages") or []:
+                ids.append(str(m["id"]))
+            page_token = payload.get("nextPageToken")
+            if not page_token:
+                break
         return ids
 
     def get_message(self, message_id: str) -> GmailMessage:

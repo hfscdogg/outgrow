@@ -53,7 +53,13 @@ from matching.identity import (
     zoho_contact_to_record,
 )
 from pipeline.customers import build_briefing, build_customers
-from pipeline.reps import LoadedRep, is_active_today, load_reps, zoho_user_to_rep_id_map
+from pipeline.reps import (
+    LoadedRep,
+    apply_cc_review_progress,
+    is_active_today,
+    load_reps,
+    zoho_user_to_rep_id_map,
+)
 from pipeline.suppressions import (
     PulseEntry,
     append_entries,
@@ -221,6 +227,7 @@ def run_one_pulse(
         draft_text=gen.draft_text,
         suggested_rep=suggested_rep,
         customer_email=mail_brief.email,
+        customer_mobile=mail_brief.mobile_e164,
     )
     pulse_email = build_pulse_email(
         pulse_id=pulse_id,
@@ -561,6 +568,10 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR
         len(recently_pulsed),
         len(already_pulsed_today),
     )
+    # Auto-expire the owner-CC review window: cc_review_remaining in the
+    # rep YAML is a total; the effective remaining shrinks as pulses land
+    # in history, so CCs stop on their own after the review sends.
+    reps = apply_cc_review_progress(reps, history)
 
     results = run_pipeline(
         today=today,
@@ -593,6 +604,9 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR
             rep_id=r.rep_id,
             pulse_id=r.pulse_id or "",
             date=today,
+            # Send-time provenance: lets the inbox poller's BCC auto-log
+            # pass classify sent-verbatim vs edited against the real draft.
+            draft_text=r.generation.draft_text if r.generation else None,
         )
         for r in results
         if r.status == PulseStatus.SENT and r.customer_id and r.pulse_id

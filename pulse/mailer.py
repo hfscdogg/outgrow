@@ -29,7 +29,9 @@ from pulse.links import (
     ACTION_SENT,
     ACTION_SKIPPED,
     build_customer_compose_mailto,
+    build_customer_sms_uri,
     build_mailto,
+    build_sent_bcc_address,
     sign_action,
 )
 
@@ -38,6 +40,10 @@ DEFAULT_ALLOWLIST_PATH = REPO_ROOT / "config" / "recipient_allowlist.yaml"
 
 SKIPPED_BODY_TEMPLATE = "Reason (optional):\n\n"
 REASSIGN_BODY_TEMPLATE = "Reassign to: {suggested_rep}\n\n"
+
+# Subject pre-filled on the compose-to-customer email. Static and casual —
+# reads like a personal note from the rep, never goes stale.
+COMPOSE_SUBJECT = "Checking in"
 
 
 def _build_edited_body(draft_text: str) -> str:
@@ -91,6 +97,10 @@ class CustomerBriefing:
     # button is omitted from the rendered pulse.
     email: str | None = None
     first_name: str | None = None
+    # Customer's mobile in E.164 (normalized from Zoho's Mobile field
+    # upstream). Powers the "Text customer" sms: button; omitted when Zoho
+    # has no mobile or the number can't be confidently normalized.
+    mobile_e164: str | None = None
 
 
 @dataclass(frozen=True)
@@ -102,6 +112,9 @@ class ActionLinks:
     # mailto: opening a fresh email TO the customer, pre-filled with the AI
     # draft. ``None`` when the customer has no email on file (Zoho gap).
     compose_to_customer: str | None = None
+    # sms: opening the rep's messaging app with the draft pre-filled.
+    # ``None`` when the customer has no normalizable mobile number.
+    text_to_customer: str | None = None
 
 
 @dataclass(frozen=True)
@@ -148,14 +161,18 @@ def build_action_links(
     draft_text: str,
     suggested_rep: str | None = None,
     customer_email: str | None = None,
+    customer_mobile: str | None = None,
 ) -> ActionLinks:
     """Generate the signed ``mailto:`` action links plus the optional
-    one-click compose-to-customer link.
+    one-click compose/text-to-customer links.
 
     ``draft_text`` is embedded into the EDITED body so the rep can edit
-    in place rather than copy/paste from the pulse. ``customer_email``,
-    when present, powers the "Send draft to customer" button (a fresh
-    mailto: to the customer with the draft pre-filled).
+    in place rather than copy/paste from the pulse. ``customer_email``
+    powers the "Send to customer" button — pre-filled subject, draft body,
+    and a token-bearing BCC back to the control mailbox so the inbox
+    poller auto-logs the send (no second tap). ``customer_mobile`` (E.164)
+    powers the "Text customer" button; SMS has no BCC, so texts still need
+    a manual action tap to record.
     """
 
     def link(action: str, body: str | None = None) -> str:
@@ -174,8 +191,20 @@ def build_action_links(
         else None
     )
     compose_to_customer = (
-        build_customer_compose_mailto(to_address=customer_email, body=draft_text)
+        build_customer_compose_mailto(
+            to_address=customer_email,
+            body=draft_text,
+            subject=COMPOSE_SUBJECT,
+            bcc=build_sent_bcc_address(
+                control_address=control_address, pulse_id=pulse_id, secret=secret
+            ),
+        )
         if customer_email
+        else None
+    )
+    text_to_customer = (
+        build_customer_sms_uri(to_number=customer_mobile, body=draft_text)
+        if customer_mobile
         else None
     )
     return ActionLinks(
@@ -184,6 +213,7 @@ def build_action_links(
         skip_today=link(ACTION_SKIPPED, body=SKIPPED_BODY_TEMPLATE),
         reassign=reassign,
         compose_to_customer=compose_to_customer,
+        text_to_customer=text_to_customer,
     )
 
 
@@ -202,9 +232,12 @@ def render_pulse_body(
     for key, value in briefing.rows:
         rows.append(f"  {key}: {value}")
     rows.extend(["", "Suggested text (in your voice):", "", draft_text, ""])
-    if links.compose_to_customer:
-        rows.append("One-click compose (pre-fills a new email TO the customer):")
-        rows.append(f"  Send to customer:  {links.compose_to_customer}")
+    if links.compose_to_customer or links.text_to_customer:
+        rows.append("One-click compose (pre-fills a message TO the customer):")
+        if links.compose_to_customer:
+            rows.append(f"  Send to customer:  {links.compose_to_customer}")
+        if links.text_to_customer:
+            rows.append(f"  Text customer:     {links.text_to_customer}")
         rows.append("")
     rows.append("Then log what you did — these go to the control mailbox:")
     rows.append(f"  Sent as-is:        {links.sent_as_is}")
@@ -296,22 +329,31 @@ def render_pulse_html(
         for key, value in briefing.rows
     )
 
-    # "Send to customer" is the primary CTA when we have the customer's email:
-    # the rep clicks once, gets a pre-filled outbound draft, edits, hits send.
-    # The control-mailbox action buttons sit below for after-the-fact logging.
+    # "Send to customer" / "Text customer" are the primary CTAs when we have
+    # the customer's email / mobile: one click, pre-filled outbound draft,
+    # edit, send. The control-mailbox action buttons sit below for logging.
+    compose_buttons: list[str] = []
+    if links.compose_to_customer:
+        compose_buttons.append(
+            _action_button(links.compose_to_customer, "Send to customer", primary=True)
+        )
+    if links.text_to_customer:
+        compose_buttons.append(
+            _action_button(links.text_to_customer, "Text customer", primary=True)
+        )
     compose_button_html = (
-        f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">'
-        f"<tr><td>"
-        f"{_action_button(links.compose_to_customer, 'Send to customer', primary=True)}"
-        f"</td></tr></table>"
-        if links.compose_to_customer
+        '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">'
+        "<tr>"
+        + "".join(f'<td style="padding:0 6px 0 0;">{btn}</td>' for btn in compose_buttons)
+        + "</tr></table>"
+        if compose_buttons
         else ""
     )
 
-    # When the compose button is present it's the primary CTA; downgrade
+    # When either compose button is present it's the primary CTA; downgrade
     # "Sent as-is" to secondary so the visual hierarchy reads top-to-bottom
     # (one-click outbound first, then logging buttons).
-    sent_as_is_primary = links.compose_to_customer is None
+    sent_as_is_primary = not compose_buttons
     log_buttons = [
         _action_button(links.sent_as_is, "Sent as-is", primary=sent_as_is_primary),
         _action_button(links.sent_with_edits, "Sent w/ edits", primary=False),
