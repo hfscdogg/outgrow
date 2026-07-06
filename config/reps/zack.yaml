@@ -1,7 +1,7 @@
 # Zack pilots alongside Henry for the 30-day window (docs/plan.md).
-# The owner is CC'd on Zack's first 5 pulses for voice-quality review;
-# cc_review_remaining decrements after each send (manually today,
-# automated when Phase 2's per-rep state-store ships).
+# The owner is CC'd on Zack's pulses for voice-quality review while
+# cc_review_remaining (below) exceeds his recorded pulse count — see
+# pipeline/reps.py::apply_cc_review_progress for the auto-expiry.
 
 rep_id: zack
 email: zack@getlivewire.com
@@ -21,13 +21,19 @@ zoho_user_id_aliases:
   - "176704000046198189"  # Andre Saunders (former rep)
   - "176704000002424003"  # Brad Camp (former rep)
 
-# Owner CC'd on the first 5 sends per docs/plan.md Phase 1 review window.
-cc_review_remaining: 5
+# Lifetime total of owner-CC review sends, measured against Zack's entry
+# count in state/pulse_history.json (apply_cc_review_progress subtracts;
+# CCs stop when the count reaches this number). Bumped 5 -> 20 on
+# 2026-07-06: Zack had 15 recorded pulses, so this grants ~5 more review
+# CCs before auto-expiry. Caveat: history prunes at 90 days, so a long
+# gap can shrink the count and briefly revive CCs — harmless at this
+# scale, revisit only if the review window ever needs to be airtight.
+cc_review_remaining: 20
 
 # Voice profile — placeholder copied from henry.yaml until Zack runs
 # his own scenario-interview session. The owner-CC review window
-# (cc_review_remaining=5 above) is the safety net while this is
-# borrowed: the owner will see Zack's first 5 drafts and can flag any
+# (cc_review_remaining above) is the safety net while this is
+# borrowed: the owner will see Zack's reviewed drafts and can flag any
 # voice drift before it reaches a customer. Replace these values with
 # Zack's distilled features as soon as his session output lands.
 formality: casual
