@@ -400,6 +400,20 @@
       "rep_id": "zack",
       "pulse_id": "2026-07-03-zack",
       "date": "2026-07-03"
+    },
+    {
+      "customer_id": "176704000108389001",
+      "rep_id": "henry",
+      "pulse_id": "2026-07-06-henry",
+      "date": "2026-07-06",
+      "draft_text": "Hey Brian and Cathy! Just thinking about you guys. Hope the system is still running killer. Let me know if you need anything!"
+    },
+    {
+      "customer_id": "176704000259499385",
+      "rep_id": "zack",
+      "pulse_id": "2026-07-06-zack",
+      "date": "2026-07-06",
+      "draft_text": "hey Nathan! just thinking about you. hope the system is still killing it. let me know if you need anything"
     }
   ]
 }
