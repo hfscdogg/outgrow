@@ -287,6 +287,34 @@ def test_briefing_email_and_first_name_none_when_zoho_lacks_them() -> None:
     assert mail.first_name is None
 
 
+def test_briefing_normalizes_mobile_to_e164() -> None:
+    """Zoho's free-text Mobile becomes E.164 so the 'Text customer' sms:
+    button gets a dialable target."""
+    zoho = _zoho()
+    zoho["Mobile"] = "804-343-1212"
+    _, mail = build_briefing(_customer(), zoho_contact=zoho, qbo_horizon=date(2017, 1, 1))
+    assert mail.mobile_e164 == "+18043431212"
+
+
+def test_briefing_mobile_none_when_absent_or_garbage() -> None:
+    _, no_mobile = build_briefing(_customer(), zoho_contact=_zoho(), qbo_horizon=date(2017, 1, 1))
+    assert no_mobile.mobile_e164 is None
+
+    zoho = _zoho()
+    zoho["Mobile"] = "ext. 12"  # not confidently normalizable
+    _, garbage = build_briefing(_customer(), zoho_contact=zoho, qbo_horizon=date(2017, 1, 1))
+    assert garbage.mobile_e164 is None
+
+
+def test_briefing_ignores_phone_field_for_mobile_e164() -> None:
+    """Mobile only, no Phone fallback — Phone is often a landline that
+    can't receive SMS; a dead-end text is worse than no button."""
+    zoho = _zoho()
+    zoho["Phone"] = "804-937-9001"  # office line present, no Mobile
+    _, mail = build_briefing(_customer(), zoho_contact=zoho, qbo_horizon=date(2017, 1, 1))
+    assert mail.mobile_e164 is None
+
+
 def test_briefing_legacy_disclosure_when_pre_qbo_horizon() -> None:
     draft, _ = build_briefing(
         _customer(first_known_contact_at=date(2003, 6, 1)),

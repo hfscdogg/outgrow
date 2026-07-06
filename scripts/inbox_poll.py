@@ -49,6 +49,11 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
     creds = GmailCreds.from_env()
     client = LiveGmailClient(creds=creds)
     label = args.label or os.environ.get("OUTGROW_INBOX_LABEL") or "Outgrow"
+    # Powers the BCC auto-log pass. Absent -> pass skipped (explicit action
+    # replies still processed), so a missing var degrades, not breaks.
+    control_address = os.environ.get("OUTGROW_CONTROL_ADDRESS") or None
+    if not control_address:
+        logger.warning("OUTGROW_CONTROL_ADDRESS not set; BCC auto-log pass disabled this run")
 
     history = load_history()
     today = date.today()
@@ -59,12 +64,14 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
         secret=secret_str.encode(),
         today=today,
         label_name=label,
+        control_address=control_address,
     )
     logger.info("inbox_poll %s", format_result(result))
 
-    if result.applied > 0:
+    updates = result.applied + result.auto_logged
+    if updates > 0:
         save_history(new_history)
-        logger.info("persisted %d updated entries to pulse_history.json", result.applied)
+        logger.info("persisted %d updated entries to pulse_history.json", updates)
     else:
         logger.info("no action updates; pulse_history.json unchanged")
 

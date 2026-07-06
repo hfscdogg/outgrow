@@ -12,14 +12,22 @@ needing to dig into JSON.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from email.utils import parsedate_to_datetime
 
 from inbox.gmail import GmailClient
 from inbox.parser import InvalidAction, ParsedAction, parse_message
 from pipeline.suppressions import PulseEntry
+from pulse.links import ACTION_EDITED, ACTION_SENT, build_sent_bcc_address
+
+# How far back the BCC auto-log pass scans for un-actioned pulses. Each
+# candidate costs one Gmail search, so the window bounds API traffic;
+# a rep who hasn't used the compose button within two weeks of the pulse
+# isn't going to.
+BCC_LOOKBACK_DAYS = 14
 
 
 @dataclass(frozen=True)
@@ -27,6 +35,7 @@ class InboxPollResult:
     fetched: int  # how many unprocessed messages Gmail returned
     applied: int  # successful action -> history updates
     rejected: dict[str, int]  # reason -> count (bad_subject, bad_token, no_match, ...)
+    auto_logged: int = 0  # actions inferred from compose-button BCC copies
 
 
 def _action_date(received_at: str, today: date) -> date:
@@ -46,6 +55,32 @@ def _action_date(received_at: str, today: date) -> date:
     return dt.date()
 
 
+def _normalize_for_compare(text: str) -> str:
+    """Collapse all whitespace runs so line-wrapping / \\r\\n differences
+    between the pulse draft and a mail client's sent copy don't register
+    as edits."""
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _classify_bcc_body(body: str, draft_text: str | None) -> tuple[str, str | None]:
+    """Infer (action, edited_text) from a compose-button BCC copy.
+
+    ``startswith`` rather than equality: mail clients auto-append
+    signatures below the draft, and "draft + signature" is still a
+    verbatim send. Anything else — changed greeting, rewritten text —
+    is an edit, recorded with the full body so the drafter-fit metric
+    sees what actually went out. Entries predating the ``draft_text``
+    field can't be compared; recorded as sent.
+    """
+    if draft_text is None:
+        return ACTION_SENT, None
+    norm_body = _normalize_for_compare(body)
+    norm_draft = _normalize_for_compare(draft_text)
+    if norm_body.startswith(norm_draft):
+        return ACTION_SENT, None
+    return ACTION_EDITED, body
+
+
 def run_inbox_poll(
     *,
     history: Sequence[PulseEntry],
@@ -53,6 +88,7 @@ def run_inbox_poll(
     secret: bytes,
     today: date,
     label_name: str = "Outgrow",
+    control_address: str | None = None,
 ) -> tuple[list[PulseEntry], InboxPollResult]:
     """Fetch new action replies, apply them to ``history``, mark processed.
 
@@ -61,6 +97,16 @@ def run_inbox_poll(
     Each Gmail message is *always* marked processed after handling —
     even bad-subject / bad-token / no-match ones — so a poisoned message
     doesn't loop forever. Logging is the audit trail.
+
+    Two passes:
+
+    1. **Explicit action replies** (subject-token verified) — unchanged.
+    2. **BCC auto-log** (needs ``control_address``): for each recent entry
+       still without an action, search for the compose button's per-pulse
+       BCC address. A hit means the rep sent the draft via "Send to
+       customer" without tapping an action button — record it for them.
+       Explicit replies win: they are applied every poll regardless of
+       existing state, while this pass only fills gaps.
     """
     msg_ids = client.list_unprocessed_message_ids(label_name)
     history_by_pulse_id = {e.pulse_id: i for i, e in enumerate(history)}
@@ -99,7 +145,35 @@ def run_inbox_poll(
         applied += 1
         client.mark_processed(mid)
 
-    return new_history, InboxPollResult(fetched=len(msg_ids), applied=applied, rejected=rejected)
+    auto_logged = 0
+    if control_address:
+        cutoff = today - timedelta(days=BCC_LOOKBACK_DAYS)
+        for idx, entry in enumerate(new_history):
+            if entry.action is not None or entry.date < cutoff:
+                continue
+            addr = build_sent_bcc_address(
+                control_address=control_address, pulse_id=entry.pulse_id, secret=secret
+            )
+            # Exact-address search; the token in the local part makes this
+            # unforgeable without the HMAC secret. -label filter keeps
+            # already-handled copies from re-applying forever.
+            hits = client.search_message_ids(f"deliveredto:{addr} -label:OutgrowProcessed")
+            if not hits:
+                continue
+            msg = client.get_message(hits[0])
+            action, edited_text = _classify_bcc_body(msg.body_text, entry.draft_text)
+            new_history[idx] = entry.with_action(
+                action=action,
+                action_at=_action_date(msg.received_at, today),
+                edited_text=edited_text,
+            )
+            auto_logged += 1
+            for hit in hits:
+                client.mark_processed(hit)
+
+    return new_history, InboxPollResult(
+        fetched=len(msg_ids), applied=applied, rejected=rejected, auto_logged=auto_logged
+    )
 
 
 # A small helper for the workflow log — keeps the orchestrator's caller
@@ -112,4 +186,7 @@ def format_result(result: InboxPollResult) -> str:
         rejected = " ".join(
             f"{k}={v}" for k, v in sorted(result.rejected.items(), key=lambda kv: (-kv[1], kv[0]))
         )
-    return f"fetched={result.fetched} applied={result.applied} rejected={rejected}"
+    return (
+        f"fetched={result.fetched} applied={result.applied} "
+        f"auto_logged={result.auto_logged} rejected={rejected}"
+    )

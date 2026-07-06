@@ -62,6 +62,9 @@ jobs:
           OUTGROW_GMAIL_REFRESH_TOKEN: ${{ secrets.OUTGROW_GMAIL_REFRESH_TOKEN }}
           OUTGROW_GMAIL_USER: ${{ secrets.OUTGROW_GMAIL_USER }}
           OUTGROW_INBOX_LABEL: ${{ vars.OUTGROW_INBOX_LABEL }}
+          # Needed by the BCC auto-log pass to reconstruct each pulse's
+          # compose-button BCC address. Absent -> pass is skipped.
+          OUTGROW_CONTROL_ADDRESS: ${{ vars.OUTGROW_CONTROL_ADDRESS }}
         run: uv run python -m scripts.inbox_poll
 
       - name: Commit updated pulse history

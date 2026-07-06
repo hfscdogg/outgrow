@@ -43,6 +43,10 @@ class PulseEntry:
     action_at: date | None = None
     edited_text: str | None = None
     skip_reason: str | None = None
+    # The AI draft as it appeared in the pulse. Written at send time so the
+    # poller's BCC auto-log pass can classify sent-verbatim vs edited by
+    # comparing the outbound body to the draft. Absent on pre-field entries.
+    draft_text: str | None = None
 
     def to_json(self) -> dict[str, str]:
         out: dict[str, str] = {
@@ -61,6 +65,8 @@ class PulseEntry:
             out["edited_text"] = self.edited_text
         if self.skip_reason is not None:
             out["skip_reason"] = self.skip_reason
+        if self.draft_text is not None:
+            out["draft_text"] = self.draft_text
         return out
 
     @classmethod
@@ -75,6 +81,7 @@ class PulseEntry:
             action_at=date.fromisoformat(str(action_at_raw)) if action_at_raw else None,
             edited_text=str(raw["edited_text"]) if raw.get("edited_text") else None,
             skip_reason=str(raw["skip_reason"]) if raw.get("skip_reason") else None,
+            draft_text=str(raw["draft_text"]) if raw.get("draft_text") else None,
         )
 
     def with_action(
@@ -91,6 +98,8 @@ class PulseEntry:
         when a verified reply lands for this pulse_id. If ``action`` is
         already set, the new value wins (idempotent retries are safe, and
         a rep changing their mind mid-day is recorded as their final answer).
+        ``draft_text`` is send-time provenance, not an action field — it
+        survives the update unchanged.
         """
         return PulseEntry(
             customer_id=self.customer_id,
@@ -101,6 +110,7 @@ class PulseEntry:
             action_at=action_at,
             edited_text=edited_text,
             skip_reason=skip_reason,
+            draft_text=self.draft_text,
         )
 
 

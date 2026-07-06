@@ -10,11 +10,13 @@ from __future__ import annotations
 from datetime import date
 from email.message import EmailMessage
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from pulse.links import verify_action
+from pulse.links import build_sent_bcc_address, verify_action
 from pulse.mailer import (
+    COMPOSE_SUBJECT,
     ActionLinks,
     CustomerBriefing,
     RecipientPolicy,
@@ -139,8 +141,63 @@ def test_build_action_links_emits_compose_link_when_customer_email_present() -> 
     assert links.compose_to_customer is not None
     assert links.compose_to_customer.startswith("mailto:jane@example.com")
     assert "body=" in links.compose_to_customer
-    # Compose link must NOT carry the HMAC token (it never re-enters the poller).
+    # No visible HMAC token — subject/body reach the customer. (The BCC
+    # address carries a token, but not the pulse_<id> subject form.)
     assert "pulse_42" not in links.compose_to_customer
+
+
+def test_compose_link_pre_fills_checking_in_subject() -> None:
+    links = build_action_links(
+        secret=SECRET,
+        control_address="control@example.com",
+        pulse_id="42",
+        draft_text=DRAFT,
+        customer_email="jane@example.com",
+    )
+    assert links.compose_to_customer is not None
+    qs = parse_qs(urlparse(links.compose_to_customer).query)
+    assert qs["subject"] == [COMPOSE_SUBJECT]
+
+
+def test_compose_link_bccs_the_auto_log_address() -> None:
+    """The compose mailto silently BCCs the per-pulse control plus-address
+    so the inbox poller records the send without a second tap."""
+    links = build_action_links(
+        secret=SECRET,
+        control_address="henry+outgrow@getlivewire.com",
+        pulse_id="42",
+        draft_text=DRAFT,
+        customer_email="jane@example.com",
+    )
+    assert links.compose_to_customer is not None
+    qs = parse_qs(urlparse(links.compose_to_customer).query)
+    expected = build_sent_bcc_address(
+        control_address="henry+outgrow@getlivewire.com", pulse_id="42", secret=SECRET
+    )
+    assert qs["bcc"] == [expected]
+
+
+def test_build_action_links_emits_sms_link_when_mobile_present() -> None:
+    links = build_action_links(
+        secret=SECRET,
+        control_address="control@example.com",
+        pulse_id="42",
+        draft_text=DRAFT,
+        customer_mobile="+18043431212",
+    )
+    assert links.text_to_customer is not None
+    assert links.text_to_customer.startswith("sms:+18043431212?body=")
+
+
+def test_build_action_links_omits_sms_link_without_mobile() -> None:
+    links = build_action_links(
+        secret=SECRET,
+        control_address="control@example.com",
+        pulse_id="42",
+        draft_text=DRAFT,
+        customer_email="jane@example.com",
+    )
+    assert links.text_to_customer is None
 
 
 def test_action_link_tokens_are_verifiable() -> None:
@@ -181,13 +238,14 @@ def test_should_not_cc_owner_when_review_exhausted() -> None:
 # ---- build_pulse_email ----------------------------------------------------
 
 
-def _links(*, customer_email: str | None = None) -> ActionLinks:
+def _links(*, customer_email: str | None = None, customer_mobile: str | None = None) -> ActionLinks:
     return build_action_links(
         secret=SECRET,
         control_address="outgrow-control@getlivewire.com",
         pulse_id="p1",
         draft_text=DRAFT,
         customer_email=customer_email,
+        customer_mobile=customer_mobile,
     )
 
 
@@ -523,6 +581,54 @@ def test_render_pulse_body_lists_send_to_customer_when_present() -> None:
     )
     assert "Send to customer:" in body
     assert "mailto:jane@example.com" in body
+
+
+def test_render_pulse_html_includes_text_customer_button_when_mobile_present() -> None:
+    links = _links(customer_mobile="+18043431212")
+    html_body = render_pulse_html(
+        rep_first_name="Henry",
+        briefing=_html_briefing(),
+        draft_text="Hey Jane.",
+        links=links,
+        today=date(2026, 5, 14),
+    )
+    assert "Text customer" in html_body
+    assert "sms:+18043431212" in html_body
+
+
+def test_render_pulse_html_renders_both_compose_buttons_together() -> None:
+    links = _links(customer_email="jane@example.com", customer_mobile="+18043431212")
+    html_body = render_pulse_html(
+        rep_first_name="Henry",
+        briefing=_html_briefing(),
+        draft_text="Hey Jane.",
+        links=links,
+        today=date(2026, 5, 14),
+    )
+    assert "Send to customer" in html_body
+    assert "Text customer" in html_body
+
+
+def test_render_pulse_html_omits_text_button_without_mobile() -> None:
+    html_body = render_pulse_html(
+        rep_first_name="Henry",
+        briefing=_html_briefing(),
+        draft_text="Hey.",
+        links=_links(customer_email="jane@example.com"),
+        today=date(2026, 5, 14),
+    )
+    assert "Text customer" not in html_body
+
+
+def test_render_pulse_body_lists_text_customer_when_present() -> None:
+    body = render_pulse_body(
+        rep_first_name="Henry",
+        briefing=_html_briefing(),
+        draft_text="Hey.",
+        links=_links(customer_mobile="+18043431212"),
+    )
+    assert "Text customer:" in body
+    assert "sms:+18043431212" in body
 
 
 def test_render_pulse_html_escapes_customer_name() -> None:
