@@ -63,7 +63,11 @@ from sync._http import urlopen_read_with_retry
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = REPO_ROOT / ".cache" / "qbo"
 
-QBO_MINOR_VERSION = "65"
+# Intuit sunset Accounting-API minorversions below 75; deprecated values
+# started returning HTTP 400 code 2010 ("Request has invalid or unsupported
+# property") on part of their fleet — the Jul 8 2026 backup dispatch hit it
+# intermittently on minorversion=65. 75 is the terminal supported version.
+QBO_MINOR_VERSION = "75"
 MAX_RESULTS = 1000
 MAX_PAGES = 500
 HTTP_TIMEOUT_S = 30
