@@ -273,9 +273,10 @@ class LiveGmailClient:
         """Return message IDs matching a raw Gmail search query.
 
         Used by the BCC auto-log pass, which searches for the exact
-        per-pulse plus-address (``deliveredto:...``) rather than a label —
-        the Gmail filter that labels ``+outgrow`` action replies doesn't
-        match the variable ``+outgrow-sent-...`` BCC addresses.
+        per-pulse plus-address (see ``inbox.processor._bcc_search_query``)
+        rather than a label — the Gmail filter that labels ``+outgrow``
+        action replies doesn't match the variable ``+outgrow-sent-...``
+        BCC addresses.
         """
         ids: list[str] = []
         page_token: str | None = None

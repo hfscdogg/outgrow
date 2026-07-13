@@ -62,6 +62,28 @@ def _normalize_for_compare(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _bcc_search_query(addr: str) -> str:
+    """Gmail query that finds the compose-button BCC copy in the control
+    mailbox, covering BOTH delivery shapes:
+
+    * Rep account != control account (e.g. Zack sending): the BCC traverses
+      real delivery into the control mailbox and the received copy carries a
+      ``Delivered-To`` header — ``deliveredto:`` matches.
+    * Rep account == control account (the owner sending from the same Gmail
+      that IS the control mailbox): Gmail dedupes the self-addressed BCC, so
+      the ONLY copy in the mailbox is the SENT one — which has no
+      ``Delivered-To`` header and is invisible to ``deliveredto:``. That
+      missed Henry's Jul 9 2026 Matt Dunham send. ``bcc:`` matches sent
+      copies, closing the gap.
+
+    Braces are Gmail's OR group. ``to:``/``cc:`` are belt-and-braces for
+    clients that put the log address in a visible recipient field. The token
+    in the address local part keeps all of these unforgeable without the
+    HMAC secret; ``-label`` keeps handled copies from re-applying forever.
+    """
+    return f"{{deliveredto:{addr} bcc:{addr} to:{addr} cc:{addr}}} -label:OutgrowProcessed"
+
+
 def _classify_bcc_body(body: str, draft_text: str | None) -> tuple[str, str | None]:
     """Infer (action, edited_text) from a compose-button BCC copy.
 
@@ -154,10 +176,7 @@ def run_inbox_poll(
             addr = build_sent_bcc_address(
                 control_address=control_address, pulse_id=entry.pulse_id, secret=secret
             )
-            # Exact-address search; the token in the local part makes this
-            # unforgeable without the HMAC secret. -label filter keeps
-            # already-handled copies from re-applying forever.
-            hits = client.search_message_ids(f"deliveredto:{addr} -label:OutgrowProcessed")
+            hits = client.search_message_ids(_bcc_search_query(addr))
             if not hits:
                 continue
             msg = client.get_message(hits[0])

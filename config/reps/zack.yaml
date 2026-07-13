@@ -20,6 +20,7 @@ zoho_user_id: "176704000151417023"
 zoho_user_id_aliases:
   - "176704000046198189"  # Andre Saunders (former rep)
   - "176704000002424003"  # Brad Camp (former rep)
+  - "176704000153194001"  # Mario Lugo (former rep)
 
 # Lifetime total of owner-CC review sends, measured against Zack's entry
 # count in state/pulse_history.json (apply_cc_review_progress subtracts;
