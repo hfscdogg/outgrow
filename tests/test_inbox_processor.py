@@ -18,7 +18,12 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from inbox.gmail import GmailMessage
-from inbox.processor import InboxPollResult, format_result, run_inbox_poll
+from inbox.processor import (
+    InboxPollResult,
+    _bcc_search_query,
+    format_result,
+    run_inbox_poll,
+)
 from pipeline.suppressions import PulseEntry
 from pulse.links import (
     ACTION_EDITED,
@@ -287,7 +292,7 @@ def _bcc_entry(pulse_id: str, *, draft: str | None = DRAFT) -> PulseEntry:
 
 def _bcc_query(pulse_id: str) -> str:
     addr = build_sent_bcc_address(control_address=CONTROL, pulse_id=pulse_id, secret=SECRET)
-    return f"deliveredto:{addr} -label:OutgrowProcessed"
+    return _bcc_search_query(addr)
 
 
 def _outbound_copy(mid: str, body: str) -> GmailMessage:
@@ -301,6 +306,23 @@ def _outbound_copy(mid: str, body: str) -> GmailMessage:
         body_text=body,
         received_at="Fri, 22 May 2026 09:12:00 -0400",
     )
+
+
+def test_bcc_search_query_covers_self_send_dedup() -> None:
+    """Regression for the Jul 9 2026 Matt Dunham miss: when the owner-rep
+    sends from the account that IS the control mailbox, Gmail dedupes the
+    self-BCC and the only copy is the SENT one — no Delivered-To header, so
+    a deliveredto:-only query finds nothing. The query must OR in bcc:
+    (matches sent copies) and keep the processed-label exclusion.
+    """
+    q = _bcc_search_query("henry+outgrow-sent-p1-abcd@getlivewire.com")
+    assert q.startswith("{") and "}" in q  # Gmail OR group
+    assert "deliveredto:henry+outgrow-sent-p1-abcd@getlivewire.com" in q
+    assert "bcc:henry+outgrow-sent-p1-abcd@getlivewire.com" in q
+    assert "to:henry+outgrow-sent-p1-abcd@getlivewire.com" in q
+    assert "-label:OutgrowProcessed" in q
+    # The exclusion must sit OUTSIDE the OR group or it ORs instead of ANDs.
+    assert q.index("-label:OutgrowProcessed") > q.index("}")
 
 
 def test_bcc_pass_records_sent_when_body_matches_draft() -> None:
