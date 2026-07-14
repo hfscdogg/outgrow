@@ -18,7 +18,8 @@ from datetime import date, datetime
 from typing import Any
 
 from drafting.generator import CustomerBriefing as DraftBriefing
-from matching.identity import MatchResult, _normalize_e164_us
+from intake.match_audit import MatchScore
+from matching.identity import MatchResult, _normalize_e164_us, _normalize_email
 from pulse.mailer import CustomerBriefing as MailBriefing
 from ranking.engine import Customer
 
@@ -135,16 +136,47 @@ def build_customers(
 
     ``recently_pulsed_ids`` are customer IDs the engine has emailed in the
     last ``DEFAULT_WINDOW_DAYS`` (see ``pipeline/suppressions.py``). They
-    surface as ``suppressed=True, suppression_reason="recently_pulsed"``
-    so the ranking layer's eligibility filter rejects them — same
-    machinery as opted-out / open-ticket suppressions in Phase 2.
+    surface as ``suppressed=True`` so the ranking layer's eligibility
+    filter rejects them, and the suppression fans out across duplicate
+    CRM records: the pulsed contact itself (``recently_pulsed``), any
+    contact matched to the same QBO account
+    (``recently_pulsed_same_account``), and any contact sharing its email
+    (``recently_pulsed_same_email``).
 
-    No suppressions are applied here — that's the suppressions table
-    (Phase 2: open Desk tickets, active Zoho deals, opted-out, etc.).
-    Phase 1 ships with ``suppressed=False`` across the board.
+    Richer suppression sources (open Desk tickets, active Zoho deals,
+    opted-out) arrive with Phase 2's suppressions table and use the same
+    ``suppressed``/``suppression_reason`` machinery.
     """
     zoho_by_id = {str(c["id"]): c for c in zoho_contacts}
     qbo_by_id = {str(c["Id"]): c for c in qbo_customers}
+
+    # Cross-contact dedup: a recently-pulsed customer must stay suppressed
+    # even when the CRM carries duplicate contact records for the same
+    # human. Suppressing by zoho_id alone let "Matthew and Michelle Dunham"
+    # get pulsed on Jul 14 2026, five days after its twin record "Matt
+    # Dunham" (same email, same matched QBO account). Two extra suppression
+    # keys are derived from the recently-pulsed contacts:
+    #   * the QBO account their pulse matched to — two contacts matched to
+    #     the same QBO customer are the same account;
+    #   * their email — two contacts sharing an address reach one inbox.
+    recent_qbo_ids = {
+        ms.qbo_id for ms in match_result.auto_matched if ms.zoho_id in recently_pulsed_ids
+    }
+    recent_emails: set[str] = set()
+    for zid in recently_pulsed_ids:
+        email = _normalize_email((zoho_by_id.get(zid) or {}).get("Email"))
+        if email:
+            recent_emails.add(email)
+
+    def _suppression_reason(ms: MatchScore, zoho: Mapping[str, Any]) -> str | None:
+        if ms.zoho_id in recently_pulsed_ids:
+            return "recently_pulsed"
+        if ms.qbo_id in recent_qbo_ids:
+            return "recently_pulsed_same_account"
+        email = _normalize_email(zoho.get("Email"))
+        if email is not None and email in recent_emails:
+            return "recently_pulsed_same_email"
+        return None
 
     customers: list[Customer] = []
     for ms in match_result.auto_matched:
@@ -167,7 +199,7 @@ def build_customers(
             _qbo_created_date(qbo),
             first_invoice,
         )
-        suppressed = ms.zoho_id in recently_pulsed_ids
+        suppression_reason = _suppression_reason(ms, zoho)
         customers.append(
             Customer(
                 id=ms.zoho_id,
@@ -177,8 +209,8 @@ def build_customers(
                 first_known_contact_at=first_known,
                 rep_match_confidence=ms.score,
                 first_invoice_at=first_invoice,
-                suppressed=suppressed,
-                suppression_reason="recently_pulsed" if suppressed else None,
+                suppressed=suppression_reason is not None,
+                suppression_reason=suppression_reason,
             )
         )
     return customers
