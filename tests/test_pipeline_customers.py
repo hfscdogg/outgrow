@@ -233,6 +233,81 @@ def test_build_customers_unsuppressed_when_not_in_history() -> None:
     assert customers[0].suppression_reason is None
 
 
+def test_build_customers_suppresses_twin_contact_matched_to_same_qbo_account() -> None:
+    """Regression for the Jul 14 2026 Matt Dunham double-touch: two Zoho
+    contact records for the same human, both auto-matched to the same QBO
+    customer. Pulsing one must suppress the other for the window."""
+    twin_a = _zoho("z_dunham_a", name="Matt Dunham")
+    twin_b = _zoho("z_dunham_b", name="Matthew and Michelle Dunham")
+    customers = build_customers(
+        zoho_contacts=[twin_a, twin_b],
+        qbo_customers=[_qbo("q_dunham")],
+        qbo_invoices=[],
+        match_result=_result(_ms("z_dunham_a", "q_dunham"), _ms("z_dunham_b", "q_dunham")),
+        zoho_user_to_rep_id={"u1": "zack"},
+        recently_pulsed_ids=frozenset({"z_dunham_a"}),  # pulsed twin A last week
+    )
+    by_id = {c.id: c for c in customers}
+    assert by_id["z_dunham_a"].suppression_reason == "recently_pulsed"
+    assert by_id["z_dunham_b"].suppressed is True
+    assert by_id["z_dunham_b"].suppression_reason == "recently_pulsed_same_account"
+
+
+def test_build_customers_suppresses_twin_contact_sharing_email() -> None:
+    """Twins matched to DIFFERENT QBO accounts but sharing an email still
+    reach one inbox — one touch per window."""
+    twin_a = _zoho("z_a")
+    twin_a["Email"] = "Matt.Dunham@dq-va.com"
+    twin_b = _zoho("z_b")
+    twin_b["Email"] = "matt.dunham@DQ-VA.com"  # case differs — must still match
+    customers = build_customers(
+        zoho_contacts=[twin_a, twin_b],
+        qbo_customers=[_qbo("q_a"), _qbo("q_b")],
+        qbo_invoices=[],
+        match_result=_result(_ms("z_a", "q_a"), _ms("z_b", "q_b")),
+        zoho_user_to_rep_id={"u1": "zack"},
+        recently_pulsed_ids=frozenset({"z_a"}),
+    )
+    by_id = {c.id: c for c in customers}
+    assert by_id["z_b"].suppressed is True
+    assert by_id["z_b"].suppression_reason == "recently_pulsed_same_email"
+
+
+def test_build_customers_no_email_dedup_when_emails_differ_or_absent() -> None:
+    """Distinct people at the same company must NOT cross-suppress."""
+    a = _zoho("z_a")
+    a["Email"] = "matt@dq-va.com"
+    b = _zoho("z_b")
+    b["Email"] = "susan@dq-va.com"
+    c = _zoho("z_c")  # no Email key at all
+    customers = build_customers(
+        zoho_contacts=[a, b, c],
+        qbo_customers=[_qbo("q_a"), _qbo("q_b"), _qbo("q_c")],
+        qbo_invoices=[],
+        match_result=_result(_ms("z_a", "q_a"), _ms("z_b", "q_b"), _ms("z_c", "q_c")),
+        zoho_user_to_rep_id={"u1": "zack"},
+        recently_pulsed_ids=frozenset({"z_a"}),
+    )
+    by_id = {c.id: c for c in customers}
+    assert by_id["z_b"].suppressed is False
+    assert by_id["z_c"].suppressed is False
+
+
+def test_build_customers_dedup_survives_deleted_historical_contact() -> None:
+    """A recently-pulsed contact that has since vanished from the Zoho sync
+    (deleted/merged) must not crash the dedup derivation."""
+    customers = build_customers(
+        zoho_contacts=[_zoho()],
+        qbo_customers=[_qbo()],
+        qbo_invoices=[],
+        match_result=_result(_ms("z1", "q1")),
+        zoho_user_to_rep_id={"u1": "zack"},
+        recently_pulsed_ids=frozenset({"z_deleted_long_ago"}),
+    )
+    assert len(customers) == 1
+    assert customers[0].suppressed is False
+
+
 # ---- build_briefing --------------------------------------------------------
 
 
