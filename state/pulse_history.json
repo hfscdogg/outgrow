@@ -535,6 +535,20 @@
       "pulse_id": "2026-07-15-zack",
       "date": "2026-07-15",
       "draft_text": "Hey Jerry, just thinking about you. Hope the system is still treating you well. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000274863074",
+      "rep_id": "henry",
+      "pulse_id": "2026-07-16-henry",
+      "date": "2026-07-16",
+      "draft_text": "Hey Richard, just thinking about you. Hope the system is treating you well. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000248723033",
+      "rep_id": "zack",
+      "pulse_id": "2026-07-16-zack",
+      "date": "2026-07-16",
+      "draft_text": "Hey Birgitt! Just thinking about you. Hope the system is treating you well. Let me know if you need anything!"
     }
   ]
 }
