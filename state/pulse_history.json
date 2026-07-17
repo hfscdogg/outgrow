@@ -563,6 +563,20 @@
       "action": "sent",
       "action_at": "2026-07-16",
       "draft_text": "Hey Birgitt! Just thinking about you. Hope the system is treating you well. Let me know if you need anything!"
+    },
+    {
+      "customer_id": "176704000207031180",
+      "rep_id": "henry",
+      "pulse_id": "2026-07-17-henry",
+      "date": "2026-07-17",
+      "draft_text": "Hey Jason! Just thinking about you. Hope the system is still treating you well. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000242307128",
+      "rep_id": "zack",
+      "pulse_id": "2026-07-17-zack",
+      "date": "2026-07-17",
+      "draft_text": "Hey Robert, just thinking about you. Hope the system is still running smooth. Let me know if you need anything."
     }
   ]
 }
