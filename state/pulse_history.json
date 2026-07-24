@@ -642,6 +642,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-07-23-henry",
       "date": "2026-07-23",
+      "action": "sent",
+      "action_at": "2026-07-23",
       "draft_text": "Hey Stephen! Just thinking about you guys. Hope the system is treating you well. Let me know if you need anything!"
     },
     {
