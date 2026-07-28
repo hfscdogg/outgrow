@@ -686,6 +686,20 @@
       "pulse_id": "2026-07-27-zack",
       "date": "2026-07-27",
       "draft_text": "Hey Jill! Just thought I'd check in. Hope the system's been treating you well. Let me know if you need anything!"
+    },
+    {
+      "customer_id": "176704000206487065",
+      "rep_id": "henry",
+      "pulse_id": "2026-07-28-henry",
+      "date": "2026-07-28",
+      "draft_text": "Hey George! Just thinking about you. Hope the system is still treating you well. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000180800003",
+      "rep_id": "zack",
+      "pulse_id": "2026-07-28-zack",
+      "date": "2026-07-28",
+      "draft_text": "Hey Stephanie! Just thinking about you. Hope the system is still treating you well. Let me know if you need anything!"
     }
   ]
 }
