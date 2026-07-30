@@ -714,6 +714,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-07-29-henry",
       "date": "2026-07-29",
+      "action": "sent",
+      "action_at": "2026-07-29",
       "draft_text": "Hey James! Just thought I'd check in. Hope the system's treating you well. Happy to help if you ever need anything \u2014 let me know!"
     },
     {
