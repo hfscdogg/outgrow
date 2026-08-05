@@ -784,6 +784,9 @@
       "rep_id": "henry",
       "pulse_id": "2026-08-04-henry",
       "date": "2026-08-04",
+      "action": "edited",
+      "action_at": "2026-08-04",
+      "edited_text": "Brian:\r\n\r\nJust checking in. What can we be doing better for you?\r\n\r\n-Henry\r\n",
       "draft_text": "Hey William! Just thinking about you. Hope the system is still treating you well. Let me know if you need anything."
     },
     {
@@ -791,6 +794,9 @@
       "rep_id": "zack",
       "pulse_id": "2026-08-04-zack",
       "date": "2026-08-04",
+      "action": "skipped",
+      "action_at": "2026-08-04",
+      "skip_reason": "Marshall actively working on project with Elliot",
       "draft_text": "Hey Elliott! Just thinking about you. Hope the system is still running killer. Let me know if you need anything."
     }
   ]
