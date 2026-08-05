@@ -798,6 +798,20 @@
       "action_at": "2026-08-04",
       "skip_reason": "Marshall actively working on project with Elliot",
       "draft_text": "Hey Elliott! Just thinking about you. Hope the system is still running killer. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000125092001",
+      "rep_id": "henry",
+      "pulse_id": "2026-08-05-henry",
+      "date": "2026-08-05",
+      "draft_text": "Hey Sumayra! Just thought I'd check in. Hope the system's still treating you well. Let me know if you need anything!"
+    },
+    {
+      "customer_id": "176704000030028011",
+      "rep_id": "zack",
+      "pulse_id": "2026-08-05-zack",
+      "date": "2026-08-05",
+      "draft_text": "Hey Phil! Just thinking about you. Hope the system's still running killer. Let me know if you need anything."
     }
   ]
 }
