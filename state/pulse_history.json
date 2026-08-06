@@ -815,6 +815,20 @@
       "pulse_id": "2026-08-05-zack",
       "date": "2026-08-05",
       "draft_text": "Hey Phil! Just thinking about you. Hope the system's still running killer. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000204781216",
+      "rep_id": "henry",
+      "pulse_id": "2026-08-06-henry",
+      "date": "2026-08-06",
+      "draft_text": "Hey Ryan! Just thinking about you. Hope the system's still running killer. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000200955232",
+      "rep_id": "zack",
+      "pulse_id": "2026-08-06-zack",
+      "date": "2026-08-06",
+      "draft_text": "Hey Jacoby, been a while. Hope the system is treating you well. Happy to help if you ever need anything. Let me know."
     }
   ]
 }
