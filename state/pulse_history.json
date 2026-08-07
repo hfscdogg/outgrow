@@ -836,6 +836,20 @@
       "action": "skipped",
       "action_at": "2026-08-06",
       "draft_text": "Hey Jacoby, been a while. Hope the system is treating you well. Happy to help if you ever need anything. Let me know."
+    },
+    {
+      "customer_id": "176704000305772021",
+      "rep_id": "henry",
+      "pulse_id": "2026-08-07-henry",
+      "date": "2026-08-07",
+      "draft_text": "Hey Suzanne! Just thinking about you. Hope the system is still treating you well. Happy to help if you ever need anything \u2014 just let me know."
+    },
+    {
+      "customer_id": "176704000272492133",
+      "rep_id": "zack",
+      "pulse_id": "2026-08-07-zack",
+      "date": "2026-08-07",
+      "draft_text": "Hey Gaye! Just thinking about you. Hope the system is still treating you well. Happy to help if anything comes up \u2014 let me know!"
     }
   ]
 }
