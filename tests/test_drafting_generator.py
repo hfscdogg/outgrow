@@ -171,6 +171,31 @@ def test_build_user_prompt_includes_voice_features() -> None:
     assert "soundbar" in prompt
 
 
+def test_build_user_prompt_omits_edit_history_when_no_examples() -> None:
+    prompt = build_user_prompt(_VOICE, _briefing(), "daily proactive")
+    assert "<rep_edit_history>" not in prompt
+
+
+def test_build_user_prompt_includes_edit_history_pairs() -> None:
+    examples = (
+        ("Hey Sam! Just thinking about you.", "Hey Sam — how's the theater treating you?"),
+        ("Hey Pat! Checking in.", "Hey Pat — saw the new soundbars land, thought of your den."),
+    )
+    prompt = build_user_prompt(_VOICE, _briefing(), "daily proactive", examples)
+    history_start = prompt.index("<rep_edit_history>")
+    history_end = prompt.index("</rep_edit_history>")
+    for draft, rewrite in examples:
+        assert history_start < prompt.index(draft) < history_end
+        assert history_start < prompt.index(rewrite) < history_end
+    assert prompt.count("<ai_draft>") == 2
+    assert prompt.count("<rep_rewrite>") == 2
+
+
+def test_system_prompt_bans_thinking_about_you_and_explains_edit_history() -> None:
+    assert "thinking about you" in SYSTEM_PROMPT.lower()
+    assert "rep_edit_history" in SYSTEM_PROMPT
+
+
 def test_build_user_prompt_quarantines_injected_directives() -> None:
     """The prompt-injection fixture from docs/plan.md verification list:
     customer notes containing ``Ignore previous instructions`` must end up
@@ -186,6 +211,21 @@ def test_build_user_prompt_quarantines_injected_directives() -> None:
 
 
 # ---- generate_draft happy + retry paths -------------------------------------
+
+
+def test_generate_draft_threads_edit_examples_into_the_call() -> None:
+    client = _FakeAnthropic(["Hey Jane — how's the rack holding up?"])
+    generate_draft(
+        client,
+        voice=_VOICE,
+        briefing=_briefing(),
+        play_brief="daily proactive",
+        cfg=_cfg(),
+        edit_examples=(("Hey! Just thinking about you.", "Hey — how's the rack doing?"),),
+    )
+    prompt = client.messages.calls[0]["messages"][0]["content"]
+    assert "<rep_edit_history>" in prompt
+    assert "how's the rack doing?" in prompt
 
 
 def test_generate_draft_happy_path_uses_primary_model() -> None:

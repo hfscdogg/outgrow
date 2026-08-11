@@ -46,6 +46,16 @@ REASSIGN_BODY_TEMPLATE = "Reassign to: {suggested_rep}\n\n"
 COMPOSE_SUBJECT = "Checking in"
 
 
+# Instruction header of the EDITED reply body. Exported because reps
+# sometimes send it back verbatim above their rewrite, so downstream
+# consumers of edited_text (pipeline.suppressions.recent_edit_examples)
+# need to strip it before treating the text as the rep's own words.
+EDITED_COMPOSE_BOILERPLATE = (
+    "Edit below to match what you actually sent the customer, then send. "
+    "(This goes to the control mailbox to record your action — NOT to the customer.)"
+)
+
+
 def _build_edited_body(draft_text: str) -> str:
     """EDITED reply body — pre-fills the draft so the rep can edit in place
     and send to record the actual text that went to the customer (vs. an

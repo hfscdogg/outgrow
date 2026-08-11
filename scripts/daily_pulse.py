@@ -29,7 +29,7 @@ import json
 import logging
 import os
 import sys
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from email.message import EmailMessage
@@ -64,6 +64,7 @@ from pipeline.suppressions import (
     PulseEntry,
     append_entries,
     load_history,
+    recent_edit_examples,
     recently_pulsed_customer_ids,
     reps_pulsed_today,
     save_history,
@@ -103,10 +104,13 @@ logger = logging.getLogger("outgrow.daily_pulse")
 PLAY_BRIEFS: dict[str, str] = {
     "daily_proactive": (
         "Reach out to a dormant customer with no specific ask. "
-        "Keep it casual — re-establish presence, not push a sale."
+        "Keep it casual — re-establish presence, not push a sale. "
+        "Anchor the opener in a concrete detail from the briefing (their "
+        "system, last install, or last purchase); never open with "
+        "'thinking about you' or a similar sentimental check-in."
     ),
     "reverse_dyk": (
-        "Open with a recent industry insight or a 'thought of you' — "
+        "Open with a recent industry insight relevant to their system — "
         "show you're paying attention, not just selling."
     ),
     "referral": (
@@ -178,6 +182,7 @@ def run_one_pulse(
     judge_profile: JudgeProfile,
     suggested_rep: str | None = None,
     dry_run: bool = True,
+    edit_examples: Sequence[tuple[str, str]] = (),
 ) -> PulseRunResult:
     """Rank → draft → judge → mail one rep's pulse.
 
@@ -207,6 +212,7 @@ def run_one_pulse(
         play_brief=play_brief,
         cfg=drafter_cfg,
         judge_profile=judge_profile,
+        edit_examples=edit_examples,
     )
     if not verdict.passed:
         return PulseRunResult(
@@ -321,6 +327,7 @@ def run_pipeline(
     dry_run: bool = True,
     recently_pulsed_ids: frozenset[str] = frozenset(),
     reps_already_pulsed_today: frozenset[str] = frozenset(),
+    edit_examples_by_rep: Mapping[str, Sequence[tuple[str, str]]] | None = None,
 ) -> list[PulseRunResult]:
     """End-to-end pipeline for every rep on ``today``.
 
@@ -333,6 +340,10 @@ def run_pipeline(
 
     ``reps_already_pulsed_today`` are rep_ids with an entry recorded
     for ``today`` already — backup cron triggers see them and no-op.
+
+    ``edit_examples_by_rep`` maps rep_id -> recent (draft, rewrite) pairs
+    from ``pipeline.suppressions.recent_edit_examples`` — the drafter
+    shows them to the model so each rep's real edits steer future drafts.
     """
     import time  # noqa: PLC0415  -- only used for timing logs in this function
 
@@ -423,6 +434,7 @@ def run_pipeline(
                 smtp_send=smtp_send,
                 judge_profile=judge_profile,
                 dry_run=dry_run,
+                edit_examples=(edit_examples_by_rep or {}).get(rep.profile.rep_id, ()),
             )
         except Exception:  # noqa: BLE001 -- isolating one rep's failure so the others still send
             # One rep's pulse failing (Anthropic rate limit, SMTP burp, etc.)
@@ -573,6 +585,13 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR
     # in history, so CCs stop on their own after the review sends.
     reps = apply_cc_review_progress(reps, history)
 
+    # Feedback loop: each rep's recent draft-vs-rewrite pairs go into the
+    # drafting prompt so the model steers toward how the rep actually
+    # writes (and away from phrasing the rep keeps deleting).
+    edit_examples_by_rep = {
+        rep.profile.rep_id: recent_edit_examples(history, rep.profile.rep_id) for rep in reps
+    }
+
     results = run_pipeline(
         today=today,
         reps=reps,
@@ -593,6 +612,7 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR
         dry_run=args.dry_run,
         recently_pulsed_ids=recently_pulsed,
         reps_already_pulsed_today=already_pulsed_today,
+        edit_examples_by_rep=edit_examples_by_rep,
     )
 
     # Only SENT pulses go into history — dry-run drafts never reached the
