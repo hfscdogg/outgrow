@@ -35,6 +35,15 @@ Copy the token. This is separate from `GH_PAT_ROTATE_SECRETS` (which is
 scoped to Secrets-write for QBO token rotation) — keep the scopes
 minimal and distinct.
 
+**This one PAT is shared by all three cron-job.org jobs**, so when
+rotating it, update the `Authorization` header in every job:
+
+| cron-job.org job     | event_type      | Workflow                 |
+| -------------------- | --------------- | ------------------------ |
+| Outgrow daily pulse  | `daily-pulse`   | `daily_dispatch.yml`     |
+| Outgrow inbox poller | `inbox-poll`    | `inbox_poll.yml` (setup: `docs/phase2/gmail_oauth_setup.md`) |
+| Outgrow weekly digest| `weekly-digest` | `weekly_digest.yml`      |
+
 ### 2. Create the cron-job.org job
 
 1. Sign up free at [cron-job.org](https://cron-job.org) (no credit card).
@@ -78,7 +87,16 @@ doesn't:
   in the workflow still gets an occasional run, and you can always
   hit Actions → daily-dispatch → Run workflow by hand.
 * **PAT expired**: dispatch POSTs start returning 401. Re-mint per
-  step 1, update the header in cron-job.org.
+  step 1, update the header in **all three** cron-job.org jobs.
+* **401 right after rotating the PAT**: GitHub couldn't authenticate
+  the token string itself — almost always a paste problem, not a scope
+  problem (wrong scopes produce 403/404, not 401). Check the header
+  value is exactly `Bearer github_pat_…` — one space after `Bearer`,
+  no quotes or trailing newline, and the full token (fine-grained PATs
+  are ~90+ characters; GitHub shows the value only once, so a partial
+  copy is easy). Confirm the token shows as Active at
+  github.com/settings/personal-access-tokens with `outgrow` access and
+  Contents read/write. When in doubt, regenerate and re-paste.
 
 ## Why not Vercel Cron / Cloud Scheduler / a real server
 
