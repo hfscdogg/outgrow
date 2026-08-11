@@ -17,9 +17,11 @@ from pipeline.suppressions import (
     PulseEntry,
     append_entries,
     load_history,
+    recent_edit_examples,
     recently_pulsed_customer_ids,
     reps_pulsed_today,
     save_history,
+    strip_compose_boilerplate,
 )
 
 
@@ -250,3 +252,85 @@ def test_with_action_preserves_draft_text() -> None:
     )
     updated = entry.with_action(action="sent", action_at=date(2026, 6, 29))
     assert updated.draft_text == "the draft"
+
+
+# ---- recent_edit_examples ---------------------------------------------------
+
+
+def _edited_entry(
+    *,
+    rep_id: str = "henry",
+    d: date = date(2026, 7, 1),
+    draft: str | None = "Hey Jane! Just thinking about you.",
+    edited: str | None = "Hey Jane — how's the media room holding up?",
+    pulse_id: str = "p1",
+) -> PulseEntry:
+    return PulseEntry(
+        customer_id="c1",
+        rep_id=rep_id,
+        pulse_id=pulse_id,
+        date=d,
+        action="edited" if edited else None,
+        action_at=d,
+        edited_text=edited,
+        draft_text=draft,
+    )
+
+
+def test_recent_edit_examples_returns_draft_rewrite_pairs() -> None:
+    entries = [_edited_entry()]
+    examples = recent_edit_examples(entries, "henry")
+    assert examples == (
+        ("Hey Jane! Just thinking about you.", "Hey Jane — how's the media room holding up?"),
+    )
+
+
+def test_recent_edit_examples_filters_other_reps_and_incomplete_pairs() -> None:
+    entries = [
+        _edited_entry(rep_id="zack"),  # other rep
+        _edited_entry(edited=None),  # never edited
+        _edited_entry(draft=None),  # pre-provenance entry, nothing to diff
+    ]
+    assert recent_edit_examples(entries, "henry") == ()
+
+
+def test_recent_edit_examples_newest_first_and_limited() -> None:
+    entries = [
+        _edited_entry(d=date(2026, 6, 1), edited="rewrite june", pulse_id="p1"),
+        _edited_entry(d=date(2026, 7, 1), edited="rewrite july", pulse_id="p2"),
+        _edited_entry(d=date(2026, 8, 1), edited="rewrite august", pulse_id="p3"),
+    ]
+    examples = recent_edit_examples(entries, "henry", limit=2)
+    assert [rewrite for _, rewrite in examples] == ["rewrite august", "rewrite july"]
+
+
+def test_recent_edit_examples_strips_compose_boilerplate() -> None:
+    # Real shape from state/pulse_history.json: rep sent the compose-flow
+    # instruction header back above the rewrite, with client line-wrapping.
+    edited = (
+        "Edit below to match what you actually sent the customer, then send.\r\n"
+        "(This goes to the control mailbox to record your action — NOT to the\r\n"
+        "customer.)\r\n\r\n"
+        "Hey Teague! It's been a minute since we last connected."
+    )
+    entries = [_edited_entry(edited=edited)]
+    examples = recent_edit_examples(entries, "henry")
+    assert examples[0][1] == "Hey Teague! It's been a minute since we last connected."
+
+
+def test_recent_edit_examples_skips_boilerplate_only_or_verbatim_edits() -> None:
+    draft = "Hey Jane! Just thinking about you."
+    boilerplate_only = (
+        "Edit below to match what you actually sent the customer, then send.\r\n"
+        "(This goes to the control mailbox to record your action — NOT to the\r\n"
+        "customer.)\r\n\r\n" + draft
+    )
+    entries = [
+        _edited_entry(edited=boilerplate_only),  # header + untouched draft
+        _edited_entry(edited="Hey Jane!  Just thinking\r\nabout you."),  # whitespace-only diff
+    ]
+    assert recent_edit_examples(entries, "henry") == ()
+
+
+def test_strip_compose_boilerplate_noop_without_header() -> None:
+    assert strip_compose_boilerplate("Hey Jane — all good?") == "Hey Jane — all good?"

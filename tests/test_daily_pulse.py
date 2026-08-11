@@ -225,6 +225,36 @@ def test_happy_path_write_sends_email() -> None:
     assert "Hey Jane — quick check-in" in plain.get_content()
 
 
+def test_edit_examples_reach_the_drafting_prompt() -> None:
+    captured: list[EmailMessage] = []
+    client = _FakeAnthropic(["Hey Jane — quick check-in on the soundbar."])
+    result = run_one_pulse(
+        rep=_zack(cc_remaining=5),
+        candidates=[_customer()],
+        play=_play(),
+        ranking_cfg=_ranking_cfg(),
+        drafter_cfg=_drafter_cfg(),
+        voice=_voice(),
+        play_brief="daily proactive",
+        today=date(2026, 5, 6),
+        briefing_for=_briefing_for,
+        pulse_id="p1",
+        secret=SECRET,
+        control_address="outgrow-control@getlivewire.com",
+        sender_email="outgrow-control@getlivewire.com",
+        policy=_policy(),
+        anthropic_client=client,
+        smtp_send=captured.append,
+        judge_profile=_judge_profile(),
+        dry_run=True,
+        edit_examples=(("Hey! Just thinking about you.", "Hey — how's the rack doing?"),),
+    )
+    assert result.status == PulseStatus.DRAFTED_DRY_RUN
+    prompt = client.messages.calls[0]["messages"][0]["content"]
+    assert "<rep_edit_history>" in prompt
+    assert "how's the rack doing?" in prompt
+
+
 def test_no_eligible_customer_returns_status() -> None:
     captured: list[EmailMessage] = []
     client = _FakeAnthropic([])  # never called

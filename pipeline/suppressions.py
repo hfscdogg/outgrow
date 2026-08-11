@@ -19,15 +19,27 @@ stays a few KB indefinitely.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 
+from pulse.mailer import EDITED_COMPOSE_BOILERPLATE
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_HISTORY_PATH = REPO_ROOT / "state" / "pulse_history.json"
 DEFAULT_WINDOW_DAYS = 90
 SCHEMA_VERSION = 1
+DEFAULT_EDIT_EXAMPLE_LIMIT = 3
+
+# The compose-button flow pre-fills the reply with an instruction header;
+# reps sometimes send it back verbatim above their rewrite, and mail
+# clients re-wrap its lines. Word-by-word with flexible whitespace so the
+# wrapped variants strip too.
+_COMPOSE_BOILERPLATE_RE = re.compile(
+    r"\s+".join(re.escape(word) for word in EDITED_COMPOSE_BOILERPLATE.split())
+)
 
 
 @dataclass(frozen=True)
@@ -144,6 +156,45 @@ def reps_pulsed_today(entries: Iterable[PulseEntry], today: date) -> frozenset[s
     second/third must no-op cleanly — that's what this set powers.
     """
     return frozenset(e.rep_id for e in entries if e.date == today)
+
+
+def _normalize_ws(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def strip_compose_boilerplate(text: str) -> str:
+    """Remove the compose-flow instruction header a rep may have sent back
+    above their rewrite. No-op when the header isn't present."""
+    return _COMPOSE_BOILERPLATE_RE.sub("", text, count=1).strip()
+
+
+def recent_edit_examples(
+    entries: Iterable[PulseEntry],
+    rep_id: str,
+    *,
+    limit: int = DEFAULT_EDIT_EXAMPLE_LIMIT,
+) -> tuple[tuple[str, str], ...]:
+    """Return up to ``limit`` most-recent (draft_text, edited_text) pairs
+    for ``rep_id`` — the feedback loop's raw material.
+
+    Each pair is a pulse where the rep rewrote the AI draft before
+    sending; the drafter includes them in the prompt as voice ground
+    truth (``drafting.generator._edit_history_block``). Pairs need both
+    sides present, and the rewrite must still differ from the draft after
+    stripping the compose-flow boilerplate header (a boilerplate-only
+    "edit" is really a verbatim send). Newest first, so trimming to
+    ``limit`` keeps the freshest signal.
+    """
+    candidates: list[tuple[date, str, str]] = []
+    for e in entries:
+        if e.rep_id != rep_id or not e.draft_text or not e.edited_text:
+            continue
+        rewrite = strip_compose_boilerplate(e.edited_text)
+        if not rewrite or _normalize_ws(rewrite) == _normalize_ws(e.draft_text):
+            continue
+        candidates.append((e.action_at or e.date, e.draft_text, rewrite))
+    candidates.sort(key=lambda c: c[0], reverse=True)
+    return tuple((draft, rewrite) for _, draft, rewrite in candidates[:limit])
 
 
 def append_entries(

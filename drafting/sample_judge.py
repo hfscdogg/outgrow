@@ -39,9 +39,22 @@ LLM_DRIFT_PHRASES: tuple[str, ...] = (
     "unlock the potential",
 )
 
+# Sentimental check-in clichés the owner strips out of drafts almost every
+# time (16 of 20 edits through Aug 2026 removed them — see
+# state/pulse_history.json). The drafter's system prompt bans them at
+# generation time; this list is the backstop that keeps one from reaching
+# a rep's inbox if the model slips anyway.
+BANNED_PHRASES: tuple[str, ...] = (
+    "thinking about you",
+    "thinking of you",
+    "been on my mind",
+    "crossed my mind",
+)
+
 
 class Reason(StrEnum):
     LLM_DRIFT = "llm_drift_phrase"
+    BANNED_PHRASE = "banned_phrase"
     HALLUCINATED_DOLLAR_AMOUNT = "hallucinated_dollar_amount"
     OFF_PROFILE_GREETING = "off_profile_greeting"
     EMOJI_OVER_BUDGET = "emoji_over_budget"
@@ -93,6 +106,10 @@ def judge(
     for phrase in LLM_DRIFT_PHRASES:
         if phrase in lower:
             violations.append(Violation(Reason.LLM_DRIFT, phrase))
+
+    for phrase in BANNED_PHRASES:
+        if phrase in lower:
+            violations.append(Violation(Reason.BANNED_PHRASE, phrase))
 
     for match in DOLLAR_RE.findall(draft):
         normalized = re.sub(r"\s+", "", match)

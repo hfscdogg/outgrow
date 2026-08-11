@@ -41,6 +41,24 @@ def test_llm_drift_phrase_flagged(profile: JudgeProfile) -> None:
     assert Reason.LLM_DRIFT in _reasons(result)
 
 
+def test_banned_phrase_thinking_about_you_flagged(profile: JudgeProfile) -> None:
+    draft = "Hey Jane! Just thinking about you. Hope the system is treating you well."
+    result = judge(draft, profile)
+    assert Reason.BANNED_PHRASE in _reasons(result)
+
+
+def test_banned_phrase_case_insensitive(profile: JudgeProfile) -> None:
+    draft = "Hey Jane — Thinking Of You today. Let me know if the rack needs anything."
+    result = judge(draft, profile)
+    assert Reason.BANNED_PHRASE in _reasons(result)
+
+
+def test_concrete_opener_not_flagged_as_banned(profile: JudgeProfile) -> None:
+    draft = "Hey Jane — how's the soundbar from last fall holding up? Happy to swing by."
+    result = judge(draft, profile)
+    assert Reason.BANNED_PHRASE not in _reasons(result)
+
+
 def test_hallucinated_dollar_amount_flagged(profile: JudgeProfile) -> None:
     draft = "Hey Jane — your rebate of $1,200 is ready. Want me to apply it?"
     result = judge(draft, profile, source_dollar_amounts=frozenset())
