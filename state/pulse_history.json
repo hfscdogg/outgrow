@@ -883,6 +883,20 @@
       "pulse_id": "2026-08-11-zack",
       "date": "2026-08-11",
       "draft_text": "Hey Steve, just thinking about you. Hope the system is still treating you well. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000092558680",
+      "rep_id": "henry",
+      "pulse_id": "2026-08-12-henry",
+      "date": "2026-08-12",
+      "draft_text": "Hey Kathryn! Hope your system's still treating you well. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000271575060",
+      "rep_id": "zack",
+      "pulse_id": "2026-08-12-zack",
+      "date": "2026-08-12",
+      "draft_text": "Hey Rachel and Jeremy, this is [name] with Livewire. We were reviewing some of our past projects and yours came up. Just wanted to check in and see how the system is holding up. Let me know if you need anything."
     }
   ]
 }
