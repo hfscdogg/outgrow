@@ -917,6 +917,13 @@
       "pulse_id": "2026-08-17-henry",
       "date": "2026-08-17",
       "draft_text": "Hey Drew! Hope your system's still treating you well. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000138884261",
+      "rep_id": "henry",
+      "pulse_id": "2026-08-18-henry",
+      "date": "2026-08-18",
+      "draft_text": "Hey Whitson! Hope your system's still treating you well. Let me know if you need anything."
     }
   ]
 }
