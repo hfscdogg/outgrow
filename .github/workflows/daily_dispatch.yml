@@ -37,8 +37,9 @@ on:
 # (daily-dispatch + inbox-poll) under one shared concurrency group. They both
 # git-push the same file; in separate groups they could run simultaneously and
 # the second push would fail non-fast-forward (this took down the Jun 29 run:
-# an hourly inbox-poll pushed mid-dispatch). A single group queues them so each
-# run checks out a main that already contains the previous writer's commit.
+# an hourly inbox-poll pushed mid-dispatch). Queueing alone isn't enough —
+# a queued run still has to check out `main` explicitly (see the checkout step)
+# to actually see what the writer ahead of it committed.
 # ``cancel-in-progress: false`` so we queue rather than killing an in-flight
 # pulse mid-send.
 concurrency:
@@ -59,7 +60,23 @@ jobs:
     # headroom for growth; revisit if real runs trend above 30m.
     timeout-minutes: 45
     steps:
+      # ``ref: main`` — NOT the default (the SHA that triggered the run).
+      # Scheduled/dispatch runs queue behind each other in the shared
+      # concurrency group below, so by the time a queued run starts, the
+      # run ahead of it has usually already pushed a new state commit.
+      # Checking out the triggering SHA hands the job a pulse_history.json
+      # that predates that push, which (a) defeats same-day idempotency
+      # and re-sends a pulse and (b) guarantees a conflicting push at the
+      # end. This is what broke the Aug 18 11:59 UTC run — and it emailed
+      # the same customer twice before failing. ``ref: main`` resolves at
+      # checkout time, so a queued run starts from what the run before it
+      # actually wrote.
       - uses: actions/checkout@v5
+        with:
+          ref: main
+          # Full history: the commit step may reset onto a moved main, and
+          # a shallow boundary can leave git unable to relate the two tips.
+          fetch-depth: 0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -103,6 +120,21 @@ jobs:
           # sync still works for ~24h then breaks with invalid_grant.
           GH_PAT_ROTATE_SECRETS: ${{ secrets.GH_PAT_ROTATE_SECRETS }}
         run: uv run python -m sync.qbo
+
+      # Last-moment idempotency guard. Checkout pulls main's tip, but the
+      # sync steps above take ~11 minutes, and a state write that lands in
+      # that window would leave us deciding "has this rep been pulsed
+      # today?" from a stale file — and a wrong answer there means a
+      # customer gets emailed twice. Fast-forward only: we hold no local
+      # commits yet, so a non-ff result means something is off and the run
+      # should proceed on what it has rather than rewrite history.
+      - name: Refresh state from main
+        run: |
+          if git fetch origin main && git merge --ff-only FETCH_HEAD; then
+            echo "state at $(git rev-parse --short HEAD)"
+          else
+            echo "::warning::could not fast-forward to origin/main; using checked-out state"
+          fi
 
       - name: Rank → Draft → Mail (orchestrator)
         env:
@@ -149,19 +181,37 @@ jobs:
           git add state/pulse_history.json
           git commit -m "chore(pulse): record sent customers $(date -u +%Y-%m-%d)"
           # The shared concurrency group should keep state writers serialized,
-          # but rebase-and-retry as defense in depth: if main moved under us
-          # (e.g. a branch-protection-exempt push), replay our commit on top
-          # rather than failing the whole dispatch on a non-fast-forward.
+          # but retry as defense in depth if main moved under us anyway.
+          # Rebase can't do this on its own: two runs appending to the same
+          # JSON array always conflict textually, so `git rebase` aborts and
+          # the next attempt replays the identical conflict (five times, then
+          # exit 1 — the Aug 18 failure). Instead, reset onto the new main and
+          # rebuild the file with a key-aware union of both sides, which makes
+          # real progress on every attempt.
+          #
+          # The merge script is staged in RUNNER_TEMP first because the reset
+          # below swaps out the work tree it lives in, and run under system
+          # python3 because it is deliberately stdlib-only.
+          cp scripts/merge_pulse_history.py "$RUNNER_TEMP/merge_pulse_history.py"
           for attempt in 1 2 3 4 5; do
-            if git push; then
+            if git push origin HEAD:main; then
               echo "pushed pulse history on attempt $attempt"
               exit 0
             fi
-            echo "push rejected (attempt $attempt); rebasing onto latest main"
-            if ! git pull --rebase --autostash origin main; then
-              git rebase --abort 2>/dev/null || true
-              echo "::warning::rebase hit a conflict on pulse_history.json; retrying"
+            echo "push rejected (attempt $attempt); merging onto latest main"
+            cp state/pulse_history.json "$RUNNER_TEMP/ours.json"
+            git fetch origin main
+            git reset --hard FETCH_HEAD
+            python3 "$RUNNER_TEMP/merge_pulse_history.py" \
+              --ours "$RUNNER_TEMP/ours.json" \
+              --theirs state/pulse_history.json \
+              --out state/pulse_history.json
+            if git diff --quiet -- state/pulse_history.json; then
+              echo "main already contains our entries; nothing left to push"
+              exit 0
             fi
+            git add state/pulse_history.json
+            git commit -m "chore(pulse): record sent customers $(date -u +%Y-%m-%d)"
           done
           echo "::error::failed to push pulse history after 5 attempts"
           exit 1

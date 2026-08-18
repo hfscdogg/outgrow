@@ -23,7 +23,9 @@ on:
 # Shared concurrency group with daily-dispatch: both commit
 # state/pulse_history.json back to main, so they must not run at the same
 # time or the second push fails non-fast-forward (the Jun 29 dispatch
-# failure). One group serializes every state writer repo-wide.
+# failure). One group serializes every state writer repo-wide. Serializing
+# only orders the writes; each run must also check out `main` to read what
+# the run ahead of it wrote.
 # cancel-in-progress: false because we'd rather queue than kill a poll that
 # already fetched messages.
 concurrency:
@@ -38,7 +40,17 @@ jobs:
       contents: write  # for the final pulse_history.json commit
     timeout-minutes: 10
     steps:
+      # ``ref: main`` rather than the triggering SHA: this workflow shares a
+      # concurrency group with daily-dispatch, so a queued poll would
+      # otherwise start from a pulse_history.json that predates the commit
+      # the run ahead of it just pushed — and then re-apply its own updates
+      # on top of a stale file, conflicting on push. ``fetch-depth: 0`` so
+      # the commit step can reset onto a moved main without a shallow
+      # boundary getting in the way.
       - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -78,19 +90,33 @@ jobs:
           git config user.email "outgrow-bot@users.noreply.github.com"
           git add state/pulse_history.json
           git commit -m "chore(inbox): record rep actions $(date -u +%Y-%m-%dT%H:%MZ)"
-          # Shared concurrency group keeps state writers serialized; rebase-and-
-          # retry as defense in depth so a moved main replays our commit instead
-          # of failing the poll on a non-fast-forward.
+          # Shared concurrency group keeps state writers serialized; retry as
+          # defense in depth if main moved anyway. Rebase can't resolve this
+          # on its own — two writers editing the same JSON array conflict
+          # textually and every retry replays the same conflict — so reset
+          # onto the new main and rebuild the file as a key-aware union of
+          # both sides instead. Same routine as daily-dispatch's commit step;
+          # see scripts/merge_pulse_history.py for the merge rules.
+          cp scripts/merge_pulse_history.py "$RUNNER_TEMP/merge_pulse_history.py"
           for attempt in 1 2 3 4 5; do
-            if git push; then
+            if git push origin HEAD:main; then
               echo "pushed rep actions on attempt $attempt"
               exit 0
             fi
-            echo "push rejected (attempt $attempt); rebasing onto latest main"
-            if ! git pull --rebase --autostash origin main; then
-              git rebase --abort 2>/dev/null || true
-              echo "::warning::rebase hit a conflict on pulse_history.json; retrying"
+            echo "push rejected (attempt $attempt); merging onto latest main"
+            cp state/pulse_history.json "$RUNNER_TEMP/ours.json"
+            git fetch origin main
+            git reset --hard FETCH_HEAD
+            python3 "$RUNNER_TEMP/merge_pulse_history.py" \
+              --ours "$RUNNER_TEMP/ours.json" \
+              --theirs state/pulse_history.json \
+              --out state/pulse_history.json
+            if git diff --quiet -- state/pulse_history.json; then
+              echo "main already contains our updates; nothing left to push"
+              exit 0
             fi
+            git add state/pulse_history.json
+            git commit -m "chore(inbox): record rep actions $(date -u +%Y-%m-%dT%H:%MZ)"
           done
           echo "::error::failed to push rep actions after 5 attempts"
           exit 1
