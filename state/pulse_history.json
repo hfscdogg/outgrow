@@ -845,6 +845,9 @@
       "rep_id": "henry",
       "pulse_id": "2026-08-11-henry",
       "date": "2026-08-11",
+      "action": "edited",
+      "action_at": "2026-08-11",
+      "edited_text": "Hey Charlie! Hope the system is still treating you well. Let me know if you\r\nneed anything.\r\n\r\n-Henry\r\n",
       "draft_text": "Hey Charlie! Just thinking about you. Hope the system is still treating you well. Let me know if you need anything."
     },
     {
@@ -852,6 +855,9 @@
       "rep_id": "zack",
       "pulse_id": "2026-08-11-zack",
       "date": "2026-08-11",
+      "action": "edited",
+      "action_at": "2026-08-11",
+      "edited_text": "Edit below to match what you actually sent the customer, then send.\r\n(This goes to the control mailbox to record your action \u2014 NOT to the\r\ncustomer.)\r\n\r\nHey Steve, hope all is well. Hope the new system is still treating you\r\nwell. Let me know if you need anything.",
       "draft_text": "Hey Steve, just thinking about you. Hope the system is still treating you well. Let me know if you need anything."
     },
     {
@@ -859,6 +865,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-08-12-henry",
       "date": "2026-08-12",
+      "action": "sent",
+      "action_at": "2026-08-12",
       "draft_text": "Hey Kathryn! Hope your system's still treating you well. Let me know if you need anything."
     },
     {
@@ -866,6 +874,9 @@
       "rep_id": "zack",
       "pulse_id": "2026-08-12-zack",
       "date": "2026-08-12",
+      "action": "skipped",
+      "action_at": "2026-08-12",
+      "skip_reason": "We have an active project with this client, will be completed this month",
       "draft_text": "Hey Rachel and Jeremy, this is [name] with Livewire. We were reviewing some of our past projects and yours came up. Just wanted to check in and see how the system is holding up. Let me know if you need anything."
     },
     {
@@ -873,6 +884,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-08-13-henry",
       "date": "2026-08-13",
+      "action": "sent",
+      "action_at": "2026-08-13",
       "draft_text": "Hey Ashley! Just thought I'd check in. Hope your system's still treating you well. Let me know if you need anything!"
     },
     {
@@ -880,6 +893,9 @@
       "rep_id": "zack",
       "pulse_id": "2026-08-13-zack",
       "date": "2026-08-13",
+      "action": "skipped",
+      "action_at": "2026-08-13",
+      "skip_reason": "I have an active project and multiple additional scopes with Eric. No need\r\nto send a pulse because we're communicating regularly.",
       "draft_text": "Hey Eric, this is [rep] with Livewire. We were reviewing some of our past projects and your system came up. Just wanted to check in and see how everything is performing. Let me know if you need anything."
     },
     {
@@ -901,6 +917,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-08-17-henry",
       "date": "2026-08-17",
+      "action": "sent",
+      "action_at": "2026-08-17",
       "draft_text": "Hey Drew! Hope your system's still treating you well. Let me know if you need anything."
     },
     {
@@ -908,6 +926,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-08-18-henry",
       "date": "2026-08-18",
+      "action": "sent",
+      "action_at": "2026-08-18",
       "draft_text": "Hey Whitson! Hope your system's still treating you well. Let me know if you need anything."
     },
     {
@@ -915,6 +935,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-08-19-henry",
       "date": "2026-08-19",
+      "action": "sent",
+      "action_at": "2026-08-19",
       "draft_text": "Hey Kathleen! Hope your system's still treating you well. Let me know if you need anything."
     },
     {
@@ -922,6 +944,9 @@
       "rep_id": "zack",
       "pulse_id": "2026-08-19-zack",
       "date": "2026-08-19",
+      "action": "edited",
+      "action_at": "2026-08-19",
+      "edited_text": "Edit below to match what you actually sent the customer, then send.\r\n(This goes to the control mailbox to record your action \u2014 NOT to the\r\ncustomer.)\r\n\r\nI learned that Jeff is no longer with the company",
       "draft_text": "Hey Jeff, this is [name] with Livewire. We were reviewing some of our past projects and your system came up. Just wanted to check in and see how everything is performing. Let me know if you need anything."
     }
   ]
