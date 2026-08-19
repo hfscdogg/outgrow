@@ -2,21 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000000069274",
-      "rep_id": "henry",
-      "pulse_id": "2026-05-20-henry",
-      "date": "2026-05-20",
-      "action": "edited",
-      "action_at": "2026-05-20",
-      "edited_text": "Hey Page! Just thought I'd check in.\r\nHope your system is working well."
-    },
-    {
-      "customer_id": "176704000197313161",
-      "rep_id": "zack",
-      "pulse_id": "2026-05-20-zack",
-      "date": "2026-05-20"
-    },
-    {
       "customer_id": "176704000000069728",
       "rep_id": "henry",
       "pulse_id": "2026-05-21-henry",
@@ -924,6 +909,20 @@
       "pulse_id": "2026-08-18-henry",
       "date": "2026-08-18",
       "draft_text": "Hey Whitson! Hope your system's still treating you well. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000324911114",
+      "rep_id": "henry",
+      "pulse_id": "2026-08-19-henry",
+      "date": "2026-08-19",
+      "draft_text": "Hey Kathleen! Hope your system's still treating you well. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000197313161",
+      "rep_id": "zack",
+      "pulse_id": "2026-08-19-zack",
+      "date": "2026-08-19",
+      "draft_text": "Hey Jeff, this is [name] with Livewire. We were reviewing some of our past projects and your system came up. Just wanted to check in and see how everything is performing. Let me know if you need anything."
     }
   ]
 }
