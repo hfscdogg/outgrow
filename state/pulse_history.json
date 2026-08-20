@@ -2,23 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000000069728",
-      "rep_id": "henry",
-      "pulse_id": "2026-05-21-henry",
-      "date": "2026-05-21",
-      "action": "sent",
-      "action_at": "2026-05-21"
-    },
-    {
-      "customer_id": "176704000239833301",
-      "rep_id": "zack",
-      "pulse_id": "2026-05-21-zack",
-      "date": "2026-05-21",
-      "action": "edited",
-      "action_at": "2026-05-21",
-      "edited_text": "Hey Brad! Hope all is well. How's everything going with the conference room\r\ntech at the ECE office? Happy to help if you ever need anything, let me\r\nknow!"
-    },
-    {
       "customer_id": "176704000000064312",
       "rep_id": "henry",
       "pulse_id": "2026-05-22-henry",
@@ -948,6 +931,20 @@
       "action_at": "2026-08-19",
       "edited_text": "Edit below to match what you actually sent the customer, then send.\r\n(This goes to the control mailbox to record your action \u2014 NOT to the\r\ncustomer.)\r\n\r\nI learned that Jeff is no longer with the company",
       "draft_text": "Hey Jeff, this is [name] with Livewire. We were reviewing some of our past projects and your system came up. Just wanted to check in and see how everything is performing. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000316429009",
+      "rep_id": "henry",
+      "pulse_id": "2026-08-20-henry",
+      "date": "2026-08-20",
+      "draft_text": "Hey Tucker! Hope your system is still working well. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000239833301",
+      "rep_id": "zack",
+      "pulse_id": "2026-08-20-zack",
+      "date": "2026-08-20",
+      "draft_text": "Hey Brad, hope all is well. Just wanted to check in and see how the system is treating you since your last install. Let me know if you need anything."
     }
   ]
 }
