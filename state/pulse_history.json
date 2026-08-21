@@ -2,24 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000000064312",
-      "rep_id": "henry",
-      "pulse_id": "2026-05-22-henry",
-      "date": "2026-05-22",
-      "action": "edited",
-      "action_at": "2026-05-22",
-      "edited_text": "Hey David!\r\n\r\nJust checking in and hope your system is treating you well. let me know if\r\nyou need anything.\r\n\r\n- Henry\r\n\r\n\r\n\r\nHENRY CLIFFORD | CEO\r\nOffice: 804-937-9001\r\nEmail: henry@getlivewire.com\r\n\r\nNEED SERVICE? BOOK ONLINE HERE! <https://www.getlivewire.com/bookings/>\r\nBOOK AN APPOINTMENT <https://calendar.app.google/ARAq8nqA3CNvQPhJ6> *WITH\r\nME*"
-    },
-    {
-      "customer_id": "176704000280853054",
-      "rep_id": "zack",
-      "pulse_id": "2026-05-22-zack",
-      "date": "2026-05-22",
-      "action": "skipped",
-      "action_at": "2026-05-26",
-      "skip_reason": "In active talks with client on a project"
-    },
-    {
       "customer_id": "176704000000067064",
       "rep_id": "henry",
       "pulse_id": "2026-05-25-henry",
