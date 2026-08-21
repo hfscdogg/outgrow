@@ -81,7 +81,6 @@ def _drafter_cfg() -> DrafterConfig:
         primary_model="claude-sonnet-4-6",
         fallback_model="claude-haiku-4-5-20251001",
         max_tokens=400,
-        temperature=0.7,
     )
 
 
