@@ -61,7 +61,6 @@ class DrafterConfig:
     primary_model: str
     fallback_model: str
     max_tokens: int
-    temperature: float
 
 
 @dataclass(frozen=True)
@@ -94,7 +93,6 @@ def load_drafter_config(path: Path = DEFAULT_RANKING_PATH) -> DrafterConfig:
         primary_model=str(drafter["primary_model"]),
         fallback_model=str(drafter["fallback_model"]),
         max_tokens=int(drafter["max_tokens"]),
-        temperature=float(drafter["temperature"]),
     )
 
 
@@ -246,7 +244,6 @@ def _call_model(client: Any, model: str, user_prompt: str, cfg: DrafterConfig) -
     response = client.messages.create(
         model=model,
         max_tokens=cfg.max_tokens,
-        temperature=cfg.temperature,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
     )

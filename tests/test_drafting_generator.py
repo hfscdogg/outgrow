@@ -82,7 +82,6 @@ def _cfg(**overrides: object) -> DrafterConfig:
         "primary_model": "claude-sonnet-4-6",
         "fallback_model": "claude-haiku-4-5-20251001",
         "max_tokens": 400,
-        "temperature": 0.7,
     }
     base.update(overrides)
     return DrafterConfig(**base)  # type: ignore[arg-type]
@@ -246,7 +245,7 @@ def test_generate_draft_happy_path_uses_primary_model() -> None:
     assert call["model"] == cfg.primary_model
     assert call["system"] == SYSTEM_PROMPT
     assert call["max_tokens"] == cfg.max_tokens
-    assert call["temperature"] == cfg.temperature
+    assert "temperature" not in call  # removed in anthropic SDK 1.x
 
 
 def test_generate_draft_falls_back_to_haiku_on_429() -> None:
@@ -414,4 +413,3 @@ def test_load_drafter_config_reads_shipped_ranking_yaml() -> None:
     assert cfg.primary_model == "claude-sonnet-4-6"
     assert cfg.fallback_model == "claude-haiku-4-5-20251001"
     assert cfg.max_tokens == 400
-    assert cfg.temperature == 0.7

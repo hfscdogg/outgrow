@@ -59,10 +59,10 @@ suppression_penalty: 0.0
 # Anthropic models for `drafting/generator.py`. Default is Sonnet 4.6;
 # fallback (one retry) on rate-limit (429) or 5xx is Haiku 4.5. Both pinned
 # here per docs/plan.md so model upgrades are a config change, not a code
-# change. `temperature` and `max_tokens` are tuned for short SMS-length
-# drafts (≤ ~300 chars).
+# change. `max_tokens` is tuned for short SMS-length drafts (≤ ~300 chars).
+# (`temperature` was removed in anthropic SDK 1.x — current models don't
+# accept sampling parameters.)
 drafter:
   primary_model: "claude-sonnet-4-6"
   fallback_model: "claude-haiku-4-5-20251001"
   max_tokens: 400
-  temperature: 0.7
