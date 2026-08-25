@@ -920,6 +920,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-08-24-henry",
       "date": "2026-08-24",
+      "action": "sent",
+      "action_at": "2026-08-24",
       "draft_text": "Hey Heather! Hope your system's still running well. Let me know if you need anything from us at Livewire."
     },
     {
@@ -927,6 +929,9 @@
       "rep_id": "zack",
       "pulse_id": "2026-08-24-zack",
       "date": "2026-08-24",
+      "action": "edited",
+      "action_at": "2026-08-24",
+      "edited_text": "Edit below to match what you actually sent the customer, then send.\r\n(This goes to the control mailbox to record your action \u2014 NOT to the\r\ncustomer.)",
       "draft_text": "Hey Brian, hope all is well. Just wanted to check in and see how the system is holding up since your last install. Let me know if you need anything."
     }
   ]
