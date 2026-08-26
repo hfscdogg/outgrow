@@ -2,21 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000000070084",
-      "rep_id": "henry",
-      "pulse_id": "2026-05-27-henry",
-      "date": "2026-05-27",
-      "action": "skipped",
-      "action_at": "2026-05-27",
-      "skip_reason": "not worth it."
-    },
-    {
-      "customer_id": "176704000166353056",
-      "rep_id": "zack",
-      "pulse_id": "2026-05-27-zack",
-      "date": "2026-05-27"
-    },
-    {
       "customer_id": "176704000000064352",
       "rep_id": "henry",
       "pulse_id": "2026-05-28-henry",
@@ -935,6 +920,20 @@
       "action_at": "2026-08-25",
       "skip_reason": "Eric is no longer at Kinloch. We're in contact with the new GM and recently\r\nhad a training / service call visit.",
       "draft_text": "Hey Eric, hope all is well. Just wanted to check in and see how your system is performing since your last install. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000240186071",
+      "rep_id": "henry",
+      "pulse_id": "2026-08-26-henry",
+      "date": "2026-08-26",
+      "draft_text": "Hey Megan! Hope your system is still working well. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000173659011",
+      "rep_id": "zack",
+      "pulse_id": "2026-08-26-zack",
+      "date": "2026-08-26",
+      "draft_text": "Hey Patty, hope you're doing great. We reviewed some of our past projects and yours came up. Just wanted to check in and see how the system is performing. Let me know if you need anything."
     }
   ]
 }
