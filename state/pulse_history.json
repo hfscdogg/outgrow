@@ -923,6 +923,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-08-27-henry",
       "date": "2026-08-27",
+      "action": "sent",
+      "action_at": "2026-08-27",
       "draft_text": "Hey Michael! Hope your system's still running well. Let me know if you need anything from us at Livewire."
     }
   ]
