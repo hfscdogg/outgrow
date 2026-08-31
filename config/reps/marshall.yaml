@@ -8,12 +8,13 @@ rep_id: marshall
 email: marshall@getlivewire.com
 first_name: Marshall
 
-# Marshall Lupejkis, Builder Relations Director. Zoho user ID supplied
-# by the owner on enablement. Note it doesn't share the 176704000...
-# prefix of the other reps' IDs — if Marshall's customer pool comes up
-# empty on the first run, re-verify in Zoho CRM > Settings > Users or
-# via `uv run python -m scripts.dump_zoho_owners` after a sync.
-zoho_user_id: "86175000000002955"
+# Marshall Lupejkis, Builder Relations Director. Zoho CRM user ID
+# (from the Owner-field link on a record he owns, confirmed by the
+# owner 2026-08-31). Beware: the Setup > Users detail URL shows the
+# account-level ZUID (leading 86...), which is a different ID space —
+# the CRM ID is the 176704000... one the Owner field carries, also
+# printable via `uv run python -m scripts.dump_zoho_owners`.
+zoho_user_id: "176704000000042005"
 
 # CC the owner on Marshall's first 5 pulses (docs/plan.md review
 # window for a newly enabled rep). Auto-expires against
