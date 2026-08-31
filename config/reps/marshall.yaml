@@ -1,0 +1,48 @@
+# Marshall joins the pulse rotation (enabled 2026-08-31). Per the
+# rollout pattern established with Zack, the owner is CC'd on Marshall's
+# first pulses for voice-quality review while cc_review_remaining
+# (below) exceeds his recorded pulse count — see
+# pipeline/reps.py::apply_cc_review_progress for the auto-expiry.
+
+rep_id: marshall
+email: marshall@getlivewire.com
+first_name: Marshall
+
+# Marshall Lupejkis, Builder Relations Director. Zoho user ID supplied
+# by the owner on enablement. Note it doesn't share the 176704000...
+# prefix of the other reps' IDs — if Marshall's customer pool comes up
+# empty on the first run, re-verify in Zoho CRM > Settings > Users or
+# via `uv run python -m scripts.dump_zoho_owners` after a sync.
+zoho_user_id: "86175000000002955"
+
+# CC the owner on Marshall's first 5 pulses (docs/plan.md review
+# window for a newly enabled rep). Auto-expires against
+# state/pulse_history.json.
+cc_review_remaining: 5
+
+# Voice profile — placeholder copied from henry.yaml until Marshall
+# runs his own scenario-interview session (same bootstrap Zack used).
+# The owner-CC review window (cc_review_remaining above) is the safety
+# net while this is borrowed: the owner will see Marshall's reviewed
+# drafts and can flag any voice drift before it reaches a customer.
+# Replace these values with Marshall's distilled features as soon as
+# his session output lands.
+formality: casual
+avg_sentence_length: 6.5
+typical_greetings:
+  - hey
+typical_signoffs:
+  - let me know
+  - check it out
+emoji_per_message: 0.0
+distinctive_vocab:
+  - referral
+  - warranty
+  - demo
+  - design
+  - killer
+  - thought
+  - livewire
+  - system
+  - happy
+  - miss
