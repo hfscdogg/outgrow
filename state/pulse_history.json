@@ -909,6 +909,13 @@
       "draft_text": "Hey Sloane! Hope your system's still running well since your last visit with us. Let me know if you need anything."
     },
     {
+      "customer_id": "176704000130614139",
+      "rep_id": "marshall",
+      "pulse_id": "2026-08-31-marshall",
+      "date": "2026-08-31",
+      "draft_text": "Hey Thomas, hope the system's still running killer for you \u2014 it's been a minute since your last install. Happy to pop by if anything needs a tune-up, let me know"
+    },
+    {
       "customer_id": "176704000315026064",
       "rep_id": "zack",
       "pulse_id": "2026-08-31-zack",
