@@ -906,6 +906,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-08-31-henry",
       "date": "2026-08-31",
+      "action": "sent",
+      "action_at": "2026-08-31",
       "draft_text": "Hey Sloane! Hope your system's still running well since your last visit with us. Let me know if you need anything."
     },
     {
