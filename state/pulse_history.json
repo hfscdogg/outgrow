@@ -2,15 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000003383631",
-      "rep_id": "henry",
-      "pulse_id": "2026-06-02-henry",
-      "date": "2026-06-02",
-      "action": "edited",
-      "action_at": "2026-06-02",
-      "edited_text": "Mike:\r\n\r\nHope your system's treating you well. Let me know if you need anything."
-    },
-    {
       "customer_id": "176704000000066076",
       "rep_id": "henry",
       "pulse_id": "2026-06-03-henry",
@@ -923,6 +914,27 @@
       "pulse_id": "2026-08-31-zack",
       "date": "2026-08-31",
       "draft_text": "Hey John, hope all is well. Just wanted to check in and see how your system is performing since your last install. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000245481006",
+      "rep_id": "henry",
+      "pulse_id": "2026-09-01-henry",
+      "date": "2026-09-01",
+      "draft_text": "Hey Mike! Hope your system's still working well. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000281077030",
+      "rep_id": "marshall",
+      "pulse_id": "2026-09-01-marshall",
+      "date": "2026-09-01",
+      "draft_text": "Hey Brian, hope the system from your June install is still treating you well. Happy to answer any questions or help with anything new \u2014 let me know!"
+    },
+    {
+      "customer_id": "176704000163504025",
+      "rep_id": "zack",
+      "pulse_id": "2026-09-01-zack",
+      "date": "2026-09-01",
+      "draft_text": "Hey Amir, hope all is well. Just wanted to check in and see how the system is holding up since your last install. Let me know if you need anything."
     }
   ]
 }
