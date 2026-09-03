@@ -930,6 +930,8 @@
       "rep_id": "zack",
       "pulse_id": "2026-09-01-zack",
       "date": "2026-09-01",
+      "action": "skipped",
+      "action_at": "2026-09-02",
       "draft_text": "Hey Amir, hope all is well. Just wanted to check in and see how the system is holding up since your last install. Let me know if you need anything."
     },
     {
