@@ -2,12 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000003385369",
-      "rep_id": "henry",
-      "pulse_id": "2026-06-08-henry",
-      "date": "2026-06-08"
-    },
-    {
       "customer_id": "176704000009409051",
       "rep_id": "henry",
       "pulse_id": "2026-06-09-henry",
@@ -962,6 +956,20 @@
       "pulse_id": "2026-09-04-marshall",
       "date": "2026-09-04",
       "draft_text": "Hey Kathryn, hope the system from last December is still treating you well. Happy to help if anything ever comes up \u2014 let me know!"
+    },
+    {
+      "customer_id": "176704000310084139",
+      "rep_id": "henry",
+      "pulse_id": "2026-09-07-henry",
+      "date": "2026-09-07",
+      "draft_text": "Hey CrossOver Healthcare Ministry! Hope your system is still working well. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000291309015",
+      "rep_id": "marshall",
+      "pulse_id": "2026-09-07-marshall",
+      "date": "2026-09-07",
+      "draft_text": "Hey Matthew, hope the system's been running smooth since your last install. Happy to help if anything comes up \u2014 let me know!"
     }
   ]
 }
