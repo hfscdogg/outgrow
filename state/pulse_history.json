@@ -962,6 +962,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-09-07-henry",
       "date": "2026-09-07",
+      "action": "sent",
+      "action_at": "2026-09-07",
       "draft_text": "Hey CrossOver Healthcare Ministry! Hope your system is still working well. Let me know if you need anything from us at Livewire."
     },
     {
