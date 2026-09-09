@@ -2,12 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000000067424",
-      "rep_id": "henry",
-      "pulse_id": "2026-06-10-henry",
-      "date": "2026-06-10"
-    },
-    {
       "customer_id": "176704000022132001",
       "rep_id": "henry",
       "pulse_id": "2026-06-11-henry",
@@ -979,6 +973,20 @@
       "pulse_id": "2026-09-08-marshall",
       "date": "2026-09-08",
       "draft_text": "Hey Bill, hope the system's been treating you well since your last install. Happy to help if anything ever comes up \u2014 let me know!"
+    },
+    {
+      "customer_id": "176704000223513010",
+      "rep_id": "henry",
+      "pulse_id": "2026-09-09-henry",
+      "date": "2026-09-09",
+      "draft_text": "Hey Wes! Hope your system is still working well. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000285716017",
+      "rep_id": "marshall",
+      "pulse_id": "2026-09-09-marshall",
+      "date": "2026-09-09",
+      "draft_text": "Hey Gunjan \u2014 hope the system's still running smooth since your last install. Happy to help if anything comes up, let me know!"
     }
   ]
 }
