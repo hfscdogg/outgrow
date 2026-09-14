@@ -2,15 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000152656036",
-      "rep_id": "henry",
-      "pulse_id": "2026-06-15-henry",
-      "date": "2026-06-15",
-      "action": "skipped",
-      "action_at": "2026-06-15",
-      "skip_reason": "- Henry\r\n\r\n\r\n\r\nHENRY CLIFFORD | CEO\r\nOffice: 804-937-9001\r\nEmail: henry@getlivewire.com\r\n\r\nNEED SERVICE? BOOK ONLINE HERE! <https://www.getlivewire.com/bookings/>\r\nBOOK AN APPOINTMENT <https://calendar.app.google/ARAq8nqA3CNvQPhJ6> *WITH\r\nME*"
-    },
-    {
       "customer_id": "176704000000067324",
       "rep_id": "henry",
       "pulse_id": "2026-06-16-henry",
@@ -1004,6 +995,20 @@
       "pulse_id": "2026-09-11-marshall",
       "date": "2026-09-11",
       "draft_text": "Hey Bill, hope that system from July is treating you well \u2014 let me know if you need anything!"
+    },
+    {
+      "customer_id": "176704000328300007",
+      "rep_id": "henry",
+      "pulse_id": "2026-09-14-henry",
+      "date": "2026-09-14",
+      "draft_text": "Hey Scott! Hope your system is still working well. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000200294013",
+      "rep_id": "marshall",
+      "pulse_id": "2026-09-14-marshall",
+      "date": "2026-09-14",
+      "draft_text": "Hey Jim, hope the system's treating you well since your last install. Happy to help if you ever need anything \u2014 let me know!"
     }
   ]
 }
