@@ -1001,6 +1001,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-09-14-henry",
       "date": "2026-09-14",
+      "action": "sent",
+      "action_at": "2026-09-14",
       "draft_text": "Hey Scott! Hope your system is still working well. Let me know if you need anything from us at Livewire."
     },
     {
@@ -1008,6 +1010,8 @@
       "rep_id": "marshall",
       "pulse_id": "2026-09-14-marshall",
       "date": "2026-09-14",
+      "action": "sent",
+      "action_at": "2026-09-14",
       "draft_text": "Hey Jim, hope the system's treating you well since your last install. Happy to help if you ever need anything \u2014 let me know!"
     }
   ]
