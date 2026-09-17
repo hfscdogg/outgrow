@@ -1022,6 +1022,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-09-16-henry",
       "date": "2026-09-16",
+      "action": "sent",
+      "action_at": "2026-09-16",
       "draft_text": "Hey Dr. Dhillon! Hope your system is still working well. Let me know if you need anything from us at Livewire."
     },
     {
