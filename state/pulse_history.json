@@ -952,6 +952,8 @@
       "rep_id": "marshall",
       "pulse_id": "2026-09-11-marshall",
       "date": "2026-09-11",
+      "action": "sent",
+      "action_at": "2026-09-21",
       "draft_text": "Hey Bill, hope that system from July is treating you well \u2014 let me know if you need anything!"
     },
     {
@@ -1043,6 +1045,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-09-21-henry",
       "date": "2026-09-21",
+      "action": "sent",
+      "action_at": "2026-09-21",
       "draft_text": "Hey Scott! Hope your system is still running well. Let me know if you need anything from us at Livewire."
     },
     {
@@ -1050,6 +1054,8 @@
       "rep_id": "marshall",
       "pulse_id": "2026-09-21-marshall",
       "date": "2026-09-21",
+      "action": "sent",
+      "action_at": "2026-09-21",
       "draft_text": "Hey Eric, your system's been running a couple years now \u2014 just wanted to check in and see how everything's holding up. Let me know if you need anything!"
     },
     {
