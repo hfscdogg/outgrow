@@ -2,14 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000022241081",
-      "rep_id": "henry",
-      "pulse_id": "2026-06-24-henry",
-      "date": "2026-06-24",
-      "action": "sent",
-      "action_at": "2026-06-24"
-    },
-    {
       "customer_id": "176704000019335323",
       "rep_id": "henry",
       "pulse_id": "2026-06-25-henry",
@@ -1071,6 +1063,27 @@
       "pulse_id": "2026-09-22-marshall",
       "date": "2026-09-22",
       "draft_text": "Hey Matthew, it's been a minute since your last install \u2014 hope the system's still treating you well. Happy to help if anything comes up, let me know!"
+    },
+    {
+      "customer_id": "176704000003385379",
+      "rep_id": "henry",
+      "pulse_id": "2026-09-23-henry",
+      "date": "2026-09-23",
+      "draft_text": "Hey William! Hope your system is still working well. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000022107042",
+      "rep_id": "marshall",
+      "pulse_id": "2026-09-23-marshall",
+      "date": "2026-09-23",
+      "draft_text": "Hey Markus \u2014 your system still treating you well since the last install? Happy to help if anything needs a tune-up. Let me know!"
+    },
+    {
+      "customer_id": "176704000264849041",
+      "rep_id": "zack",
+      "pulse_id": "2026-09-23-zack",
+      "date": "2026-09-23",
+      "draft_text": "Hey Todd, hope all is well. Hope the system is still treating you well since your last purchase. Let me know if you need anything."
     }
   ]
 }
