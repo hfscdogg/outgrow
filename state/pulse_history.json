@@ -2,15 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000019335323",
-      "rep_id": "henry",
-      "pulse_id": "2026-06-25-henry",
-      "date": "2026-06-25",
-      "action": "edited",
-      "action_at": "2026-06-25",
-      "edited_text": "Edit below to match what you actually sent the customer, then send.\r\n(This goes to the control mailbox to record your action \u2014 NOT to the\r\ncustomer.)\r\n\r\nHey Teague! Just thinking about you \u2014 it's been a minute since we last\r\nconnected. Hope the system's still treating you well. Let me know if you\r\nneed anything!\r\n\r\n-Henry"
-    },
-    {
       "customer_id": "176704000000068042",
       "rep_id": "henry",
       "pulse_id": "2026-06-26-henry",
@@ -1086,6 +1077,27 @@
       "pulse_id": "2026-09-23-zack",
       "date": "2026-09-23",
       "draft_text": "Hey Todd, hope all is well. Hope the system is still treating you well since your last purchase. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000188033007",
+      "rep_id": "henry",
+      "pulse_id": "2026-09-24-henry",
+      "date": "2026-09-24",
+      "draft_text": "Hey Michael! Hope your system's still running well after that December install. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000321986001",
+      "rep_id": "marshall",
+      "pulse_id": "2026-09-24-marshall",
+      "date": "2026-09-24",
+      "draft_text": "Hey James \u2014 hope the system's still running smooth since May. Happy to help if anything ever comes up, just let me know."
+    },
+    {
+      "customer_id": "176704000330269017",
+      "rep_id": "zack",
+      "pulse_id": "2026-09-24-zack",
+      "date": "2026-09-24",
+      "draft_text": "Hey Kevin, hope all is well. Hope the system from your last purchase is still treating you well. Let me know if you need anything."
     }
   ]
 }
