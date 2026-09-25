@@ -2,14 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000000068042",
-      "rep_id": "henry",
-      "pulse_id": "2026-06-26-henry",
-      "date": "2026-06-26",
-      "action": "sent",
-      "action_at": "2026-06-26"
-    },
-    {
       "customer_id": "176704000003382367",
       "rep_id": "henry",
       "pulse_id": "2026-06-29-henry",
@@ -1101,6 +1093,27 @@
       "pulse_id": "2026-09-24-zack",
       "date": "2026-09-24",
       "draft_text": "Hey Kevin, hope all is well. Hope the system from your last purchase is still treating you well. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000019335323",
+      "rep_id": "henry",
+      "pulse_id": "2026-09-25-henry",
+      "date": "2026-09-25",
+      "draft_text": "Hey Teague! Hope your system is still working well after your last visit with us. Let me know if you need anything from Livewire."
+    },
+    {
+      "customer_id": "176704000322246001",
+      "rep_id": "marshall",
+      "pulse_id": "2026-09-25-marshall",
+      "date": "2026-09-25",
+      "draft_text": "Hey Paul, hope the system is still treating you well since May. Happy to help if anything comes up \u2014 let me know!"
+    },
+    {
+      "customer_id": "176704000115064035",
+      "rep_id": "zack",
+      "pulse_id": "2026-09-25-zack",
+      "date": "2026-09-25",
+      "draft_text": "Hey Evan, hope all is well. How's your system treating you since your last visit with us? Let me know if you need anything."
     }
   ]
 }
