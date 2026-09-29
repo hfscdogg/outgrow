@@ -1106,6 +1106,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-09-28-henry",
       "date": "2026-09-28",
+      "action": "sent",
+      "action_at": "2026-09-28",
       "draft_text": "Hey Missy! Hope your system is still working well after your last purchase. Let me know if you need anything from us at Livewire."
     },
     {
@@ -1120,6 +1122,9 @@
       "rep_id": "zack",
       "pulse_id": "2026-09-28-zack",
       "date": "2026-09-28",
+      "action": "skipped",
+      "action_at": "2026-09-28",
+      "skip_reason": "I was just in contact with John and his wife. They love the system.",
       "draft_text": "Hey John, hope all is well. How's the system treating you since your last install? Let me know if you need anything."
     }
   ]
