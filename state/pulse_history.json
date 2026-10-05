@@ -1077,6 +1077,8 @@
       "rep_id": "zack",
       "pulse_id": "2026-09-29-zack",
       "date": "2026-09-29",
+      "action": "skipped",
+      "action_at": "2026-10-02",
       "draft_text": "Hey Kevin, hope all is well. How's the system treating you since your last visit with us in January? Let me know if you need anything."
     },
     {
@@ -1101,6 +1103,8 @@
       "rep_id": "zack",
       "pulse_id": "2026-09-30-zack",
       "date": "2026-09-30",
+      "action": "sent",
+      "action_at": "2026-10-02",
       "draft_text": "Hey Aaron, hope all is well. How's the system treating you since your last install? Let me know if you need anything."
     },
     {
@@ -1115,6 +1119,9 @@
       "rep_id": "zack",
       "pulse_id": "2026-10-01-zack",
       "date": "2026-10-01",
+      "action": "skipped",
+      "action_at": "2026-10-02",
+      "skip_reason": "Marshall just met with Turner",
       "draft_text": "Hey Turner, hope all is well. How's the system treating you since your last visit with us? Let me know if you need anything."
     },
     {
