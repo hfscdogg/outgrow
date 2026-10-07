@@ -1118,6 +1118,8 @@
       "rep_id": "marshall",
       "pulse_id": "2026-10-05-marshall",
       "date": "2026-10-05",
+      "action": "sent",
+      "action_at": "2026-10-06",
       "draft_text": "Hey Cynthia! Hope the system is still treating you well since your last install. Happy to help if you ever need anything \u2014 let me know!"
     },
     {
