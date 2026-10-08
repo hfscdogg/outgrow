@@ -1131,6 +1131,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-10-07-henry",
       "date": "2026-10-07",
+      "action": "sent",
+      "action_at": "2026-10-07",
       "draft_text": "Hey Susan! Hope your system is still running well after your last install. Let me know if you need anything from us at Livewire."
     },
     {
