@@ -1123,6 +1123,8 @@
       "rep_id": "zack",
       "pulse_id": "2026-10-07-zack",
       "date": "2026-10-07",
+      "action": "skipped",
+      "action_at": "2026-10-08",
       "draft_text": "Hey Rob, hope all is well. Just wanted to check in and see how your system is treating you since your last visit with us. Let me know if you need anything."
     },
     {
@@ -1130,6 +1132,9 @@
       "rep_id": "henry",
       "pulse_id": "2026-10-08-henry",
       "date": "2026-10-08",
+      "action": "edited",
+      "action_at": "2026-10-08",
+      "edited_text": "Mr. Cawthorn:\r\n\r\nHope your system is still treating you well after your last install. Let me\r\nknow if you need anything from us at Livewire.\r\n\r\n-Henry\r\n",
       "draft_text": "Hey William! Hope your system is still treating you well after your last install. Let me know if you need anything from us at Livewire."
     },
     {
@@ -1137,6 +1142,9 @@
       "rep_id": "zack",
       "pulse_id": "2026-10-08-zack",
       "date": "2026-10-08",
+      "action": "edited",
+      "action_at": "2026-10-08",
+      "edited_text": "Edit below to match what you actually sent the customer, then send.\r\n(This goes to the control mailbox to record your action \u2014 NOT to the\r\ncustomer.)\r\n\r\nHey Randy, hope all is well. How's the system holding up since your last\r\nvisit with us? Let me know if you need anything.",
       "draft_text": "Hey Randy, hope all is well. How's the system holding up since your last visit with us? Let me know if you need anything."
     }
   ]
