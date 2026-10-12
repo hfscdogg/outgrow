@@ -2,26 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000000068276",
-      "rep_id": "henry",
-      "pulse_id": "2026-07-13-henry",
-      "date": "2026-07-13",
-      "action": "edited",
-      "action_at": "2026-07-13",
-      "edited_text": "Edit below to match what you actually sent the customer, then send.\r\n(This goes to the control mailbox to record your action \u2014 NOT to the\r\ncustomer.)\r\n\r\nStill interested in having us get your security and video surveillance\r\nsorted out?",
-      "draft_text": "Hey Mark! Just thinking about you. Hope the system is treating you well. Let me know if you need anything!"
-    },
-    {
-      "customer_id": "176704000133393447",
-      "rep_id": "zack",
-      "pulse_id": "2026-07-13-zack",
-      "date": "2026-07-13",
-      "action": "skipped",
-      "action_at": "2026-07-16",
-      "skip_reason": "Marshall in talks with this client on a scope",
-      "draft_text": "Hey Peter! Just thinking about you. Hope the system is still running killer. Let me know if you need anything."
-    },
-    {
       "customer_id": "176704000092535511",
       "rep_id": "henry",
       "pulse_id": "2026-07-14-henry",
@@ -1137,6 +1117,13 @@
       "pulse_id": "2026-10-09-zack",
       "date": "2026-10-09",
       "draft_text": "Hey Charlie, hope all is well. How's your system holding up since your last purchase? Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000133393447",
+      "rep_id": "zack",
+      "pulse_id": "2026-10-12-zack",
+      "date": "2026-10-12",
+      "draft_text": "Hey Peter, hope all is well. How's your system been treating you since your last purchase? Let me know if you need anything."
     }
   ]
 }
