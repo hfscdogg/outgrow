@@ -2,25 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000226051010",
-      "rep_id": "henry",
-      "pulse_id": "2026-07-15-henry",
-      "date": "2026-07-15",
-      "action": "edited",
-      "action_at": "2026-07-15",
-      "edited_text": "Hey Keith! Hope the system is still treating you well. Let me know if you\r\nneed anything.\r\n",
-      "draft_text": "Hey Keith! Just thinking about you. Hope the system is still treating you well. Let me know if you need anything."
-    },
-    {
-      "customer_id": "176704000209330149",
-      "rep_id": "zack",
-      "pulse_id": "2026-07-15-zack",
-      "date": "2026-07-15",
-      "action": "sent",
-      "action_at": "2026-07-16",
-      "draft_text": "Hey Jerry, just thinking about you. Hope the system is still treating you well. Let me know if you need anything."
-    },
-    {
       "customer_id": "176704000274863074",
       "rep_id": "henry",
       "pulse_id": "2026-07-16-henry",
@@ -1115,6 +1096,13 @@
       "action": "sent",
       "action_at": "2026-10-13",
       "draft_text": "Hey Alex, hope all is well. How's the system been treating you since your last install? Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000209330149",
+      "rep_id": "zack",
+      "pulse_id": "2026-10-14-zack",
+      "date": "2026-10-14",
+      "draft_text": "Hey Jerry, hope all is well. How's your system been treating you since your last install? Let me know if you need anything."
     }
   ]
 }
