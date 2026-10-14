@@ -1112,6 +1112,8 @@
       "rep_id": "zack",
       "pulse_id": "2026-10-13-zack",
       "date": "2026-10-13",
+      "action": "sent",
+      "action_at": "2026-10-13",
       "draft_text": "Hey Alex, hope all is well. How's the system been treating you since your last install? Let me know if you need anything."
     }
   ]
