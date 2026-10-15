@@ -2,25 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000274863074",
-      "rep_id": "henry",
-      "pulse_id": "2026-07-16-henry",
-      "date": "2026-07-16",
-      "action": "edited",
-      "action_at": "2026-07-16",
-      "edited_text": "Hey Richard!\r\n\r\nHope your system is treating you well. Let me know if you need anything\r\nfrom us at Livewire.\r\n\r\n- Henry\r\n\r\n\r\n\r\nHENRY CLIFFORD | CEO\r\nOffice: 804-937-9001\r\nEmail: henry@getlivewire.com\r\n\r\nNEED SERVICE? BOOK ONLINE HERE! <https://www.getlivewire.com/bookings/>\r\nBOOK AN APPOINTMENT <https://calendar.app.google/ARAq8nqA3CNvQPhJ6> *WITH\r\nME*\r\n",
-      "draft_text": "Hey Richard, just thinking about you. Hope the system is treating you well. Let me know if you need anything from us at Livewire."
-    },
-    {
-      "customer_id": "176704000248723033",
-      "rep_id": "zack",
-      "pulse_id": "2026-07-16-zack",
-      "date": "2026-07-16",
-      "action": "sent",
-      "action_at": "2026-07-16",
-      "draft_text": "Hey Birgitt! Just thinking about you. Hope the system is treating you well. Let me know if you need anything!"
-    },
-    {
       "customer_id": "176704000207031180",
       "rep_id": "henry",
       "pulse_id": "2026-07-17-henry",
@@ -1106,6 +1087,13 @@
       "action_at": "2026-10-14",
       "skip_reason": "I reached out to Jerry recently\r\n\r\n\r\nThanks,\r\n\r\nZack\r\n\r\n<https://getlivewire.com/>\r\nZack Reichert\r\nDirector of Sales & Business Development\r\nDirect: 804-806-3494 | Office: 804-937-9001 Ext 21 <804-937-9001>\r\nEmail: zack@getlivewire.com\r\n\r\nNEED SERVICE? BOOK ONLINE HERE! <https://www.getlivewire.com/bookings/>\r\n\r\nCE Pro Top 100 | Inc. 500/5000 | RVA 25\r\nVoted #1 in Richmond by Richmond Magazine",
       "draft_text": "Hey Jerry, hope all is well. How's your system been treating you since your last install? Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000248723033",
+      "rep_id": "zack",
+      "pulse_id": "2026-10-15-zack",
+      "date": "2026-10-15",
+      "draft_text": "Hey Birgitt, hope all is well. Hope the system is still treating you well since your last visit with us. Let me know if you need anything."
     }
   ]
 }
