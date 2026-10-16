@@ -1093,6 +1093,8 @@
       "rep_id": "zack",
       "pulse_id": "2026-10-15-zack",
       "date": "2026-10-15",
+      "action": "sent",
+      "action_at": "2026-10-15",
       "draft_text": "Hey Birgitt, hope all is well. Hope the system is still treating you well since your last visit with us. Let me know if you need anything."
     }
   ]
