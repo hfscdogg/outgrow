@@ -1063,6 +1063,8 @@
       "rep_id": "zack",
       "pulse_id": "2026-10-21-zack",
       "date": "2026-10-21",
+      "action": "skipped",
+      "action_at": "2026-10-21",
       "draft_text": "Hey Paul, hope all is well. How's the system treating you since your last install? Let me know if you need anything."
     }
   ]
