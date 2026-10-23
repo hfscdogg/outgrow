@@ -2,20 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000000070402",
-      "rep_id": "henry",
-      "pulse_id": "2026-07-24-henry",
-      "date": "2026-07-24",
-      "draft_text": "Hey Ronnie! Just thinking about you \u2014 hope the system is still treating you well. Happy to help if you ever need anything. Let me know!"
-    },
-    {
-      "customer_id": "176704000151879148",
-      "rep_id": "zack",
-      "pulse_id": "2026-07-24-zack",
-      "date": "2026-07-24",
-      "draft_text": "Hey Richard! Just thinking about you. Hope the system's been treating you well. Let me know if you need anything."
-    },
-    {
       "customer_id": "176704000092558648",
       "rep_id": "henry",
       "pulse_id": "2026-07-27-henry",
@@ -1057,6 +1043,13 @@
       "pulse_id": "2026-10-22-zack",
       "date": "2026-10-22",
       "draft_text": "Hey Dave, hope all is well. How's the system holding up since your last visit with us? Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000151879148",
+      "rep_id": "zack",
+      "pulse_id": "2026-10-23-zack",
+      "date": "2026-10-23",
+      "draft_text": "Hey Richard, hope all is well. How's your system holding up since your last purchase in May? Let me know if you need anything."
     }
   ]
 }
