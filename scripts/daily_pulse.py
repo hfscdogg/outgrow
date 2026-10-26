@@ -52,6 +52,15 @@ from matching.identity import (
     qbo_customer_to_record,
     zoho_contact_to_record,
 )
+from pipeline.alerts import (
+    DEFAULT_ALERTS_PATH,
+    AlertRecord,
+    RejectedDraft,
+    build_rejection_alert,
+    load_alerts,
+    save_alerts,
+    unalerted,
+)
 from pipeline.customers import build_briefing, build_customers
 from pipeline.reps import (
     LoadedRep,
@@ -76,6 +85,7 @@ from pulse.mailer import (
     RecipientPolicy,
     RepProfile,
     SmtpSender,
+    assert_recipients_allowed,
     build_action_links,
     build_pulse_email,
     load_recipient_policy,
@@ -459,6 +469,54 @@ def run_pipeline(
     return results
 
 
+def alert_on_rejections(
+    results: Sequence[PulseRunResult],
+    *,
+    today: date,
+    policy: RecipientPolicy,
+    sender_email: str,
+    smtp_send: SmtpSender,
+    alerts_path: Path = DEFAULT_ALERTS_PATH,
+) -> list[str]:
+    """Email the owner about judge-rejected pulses; return the rep_ids alerted.
+
+    At most one alert per rep per day: backup crons re-reject the same rep,
+    so ``state/alerts.json`` remembers who was already alerted today. The
+    record is only written after the send succeeds, so an SMTP failure
+    leaves the next firing free to try again.
+    """
+    rejected = [
+        RejectedDraft(
+            rep_id=r.rep_id,
+            customer_id=r.customer_id or "",
+            pulse_id=r.pulse_id or "",
+            draft_text=r.generation.draft_text if r.generation else "",
+            violations=tuple(f"{v.reason}: {v.detail}" for v in r.judge.violations)
+            if r.judge
+            else (),
+        )
+        for r in results
+        if r.status == PulseStatus.JUDGE_REJECTED
+    ]
+    records = load_alerts(alerts_path)
+    pending = unalerted(rejected, records, today)
+    if not pending:
+        return []
+    assert_recipients_allowed([policy.owner_email], policy)
+    smtp_send(
+        build_rejection_alert(
+            pending, today=today, owner_email=policy.owner_email, sender_email=sender_email
+        )
+    )
+    alerted = [r.rep_id for r in pending]
+    save_alerts(
+        [*records, *(AlertRecord(date=today, rep_id=rep_id) for rep_id in alerted)],
+        today=today,
+        path=alerts_path,
+    )
+    return alerted
+
+
 def _read_cache_json(path: Path) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -632,6 +690,23 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR
         if r.status == PulseStatus.SENT and r.customer_id and r.pulse_id
     ]
     save_history(append_entries(history, new_entries, today=today))
+
+    # A rejected draft means the rep got no pulse today. Tell the owner
+    # rather than skipping silently — that hid a stuck rep for two weeks.
+    # Best-effort: an alert failure must not fail a run whose pulses sent.
+    if not args.dry_run:
+        try:
+            alerted = alert_on_rejections(
+                results,
+                today=today,
+                policy=policy,
+                sender_email=sender_email,
+                smtp_send=smtp_sender,
+            )
+            if alerted:
+                logger.warning("judge rejected pulse(s); alerted owner for %s", alerted)
+        except Exception:  # noqa: BLE001 -- alerting is best-effort
+            logger.exception("failed to send judge-rejection alert")
 
     _print_dry_run_report(results)
     # Surface per-rep pipeline errors as a non-zero exit so GitHub Actions

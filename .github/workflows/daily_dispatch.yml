@@ -168,17 +168,20 @@ jobs:
       # Persists the orchestrator's pulse-history update back to main so the
       # next run knows which customers it already pulsed (within the 90-day
       # suppression window). Runs even on partial failure (one rep failing
-      # shouldn't lose the other rep's history entry).
+      # shouldn't lose the other rep's history entry). Also persists
+      # state/alerts.json so a backup cron doesn't re-alert the owner about
+      # a judge rejection already reported today.
       - name: Commit updated pulse history
         if: always()
         run: |
-          if [ -z "$(git status --porcelain state/pulse_history.json)" ]; then
+          if [ -z "$(git status --porcelain state/pulse_history.json state/alerts.json)" ]; then
             echo "no pulse history changes; skipping commit"
             exit 0
           fi
           git config user.name "outgrow-bot"
           git config user.email "outgrow-bot@users.noreply.github.com"
           git add state/pulse_history.json
+          if [ -f state/alerts.json ]; then git add state/alerts.json; fi
           git commit -m "chore(pulse): record sent customers $(date -u +%Y-%m-%d)"
           # The shared concurrency group should keep state writers serialized,
           # but retry as defense in depth if main moved under us anyway.
@@ -200,13 +203,20 @@ jobs:
             fi
             echo "push rejected (attempt $attempt); merging onto latest main"
             cp state/pulse_history.json "$RUNNER_TEMP/ours.json"
+            # The alert log is carried over as-is rather than merged: losing
+            # a concurrent run's record costs at most one duplicate alert.
+            if [ -f state/alerts.json ]; then cp state/alerts.json "$RUNNER_TEMP/alerts.json"; fi
             git fetch origin main
             git reset --hard FETCH_HEAD
             python3 "$RUNNER_TEMP/merge_pulse_history.py" \
               --ours "$RUNNER_TEMP/ours.json" \
               --theirs state/pulse_history.json \
               --out state/pulse_history.json
-            if git diff --quiet -- state/pulse_history.json; then
+            if [ -f "$RUNNER_TEMP/alerts.json" ]; then
+              cp "$RUNNER_TEMP/alerts.json" state/alerts.json
+              git add state/alerts.json
+            fi
+            if git diff --quiet -- state/pulse_history.json && git diff --cached --quiet -- state/alerts.json; then
               echo "main already contains our entries; nothing left to push"
               exit 0
             fi
