@@ -19,6 +19,17 @@ EMOJI_RE = re.compile(
 )
 DOLLAR_RE = re.compile(r"\$\s*\d[\d,]*(?:\.\d+)?")
 
+# A name-only salutation on its own line ("Mark:", "Mr. Cawthorn:") — the
+# owner's own rewrites switched to this opener in Sep 2026, and the drafter
+# learns it from the edit history. Without this, every one of those drafts
+# failed the greeting check and the owner's pulse silently stopped for weeks.
+# Capitalized name words only, so "Dear valued customer:" and other generic
+# openers still fall through to the allowed-greetings check.
+NAME_SALUTATION_RE = re.compile(
+    r"^(?:(?:Mr|Mrs|Ms|Mx|Dr|Miss)\.?\s+)?[A-Z][A-Za-z'\-]*(?:\s+[A-Z][A-Za-z'\-]*)?\s*:$"
+)
+SALUTATION_DENYLIST: frozenset[str] = frozenset({"dear", "greetings", "hello", "attention"})
+
 # Phrases that scream "GPT wrote this." Add to this list when new patterns
 # show up in production drafts.
 LLM_DRIFT_PHRASES: tuple[str, ...] = (
@@ -87,6 +98,13 @@ def _first_sentence(draft: str) -> str:
     return parts[0].strip().lower() if parts else ""
 
 
+def _is_name_salutation(draft: str) -> bool:
+    first_line = draft.strip().split("\n", 1)[0].strip()
+    if not NAME_SALUTATION_RE.match(first_line):
+        return False
+    return first_line.split()[0].rstrip(".:").lower() not in SALUTATION_DENYLIST
+
+
 def judge(
     draft: str,
     profile: JudgeProfile,
@@ -120,6 +138,7 @@ def judge(
     if (
         profile.allowed_greetings
         and first
+        and not _is_name_salutation(draft)
         and not any(first.startswith(g.lower()) for g in profile.allowed_greetings)
     ):
         violations.append(Violation(Reason.OFF_PROFILE_GREETING, first[:40]))
