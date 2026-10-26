@@ -77,6 +77,34 @@ def test_off_profile_greeting_flagged(profile: JudgeProfile) -> None:
     assert Reason.OFF_PROFILE_GREETING in _reasons(result)
 
 
+@pytest.mark.parametrize(
+    "draft",
+    [
+        "Mark:\n\nHope your system's still running well after your last purchase. "
+        "Let me know if you need anything from us at Livewire.",
+        "Mr. Cawthorn:\n\nHope your system is still treating you well after your last install.",
+        "Mary Ann:\nHope the system is still treating you well. Let me know if you need anything.",
+    ],
+)
+def test_name_salutation_greeting_allowed(profile: JudgeProfile, draft: str) -> None:
+    result = judge(draft, profile)
+    assert Reason.OFF_PROFILE_GREETING not in _reasons(result)
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [
+        "Dear Mark:\n\nHope your system's still running well after your last purchase.",
+        "Greetings:\n\nHope your system's still running well after your last purchase.",
+        "mark:\n\nHope your system's still running well after your last purchase.",
+        "Mark: hope your system's still running well after your last purchase.",
+    ],
+)
+def test_non_name_salutation_still_flagged(profile: JudgeProfile, draft: str) -> None:
+    result = judge(draft, profile)
+    assert Reason.OFF_PROFILE_GREETING in _reasons(result)
+
+
 def test_emoji_over_budget_flagged(profile: JudgeProfile) -> None:
     draft = "Hey Jane — install looks great 🎉🎉🎉. Catch you next week."
     result = judge(draft, profile)
