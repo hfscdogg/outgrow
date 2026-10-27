@@ -24,8 +24,8 @@ on:
   repository_dispatch:
     types: [weekly-digest]
   schedule:
-    # 11:30 UTC = 07:30 EDT on Mondays. November DST flip: bump to 12:30.
-    - cron: "30 11 * * 1"
+    # 12:30 UTC = 07:30 EST on Mondays. March DST flip: back to 11:30.
+    - cron: "30 12 * * 1"
 
 concurrency:
   group: weekly-digest

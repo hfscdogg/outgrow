@@ -15,12 +15,13 @@ name: daily-dispatch
 # pipeline/suppressions.py::reps_pulsed_today) means a fallback firing
 # after the primary already sent no-ops cleanly.
 #
-# Schedule triggers in UTC; ET column is during DST (UTC-4). At the
-# November DST flip change "11"/"12" to "12"/"13".
+# Schedule triggers in UTC; ET column is standard time (EST, UTC-5),
+# set for the Nov 1 2026 flip. At the March DST flip (Mar 14 2027) change
+# "12"/"13" back to "11"/"12".
 #
-#   11:13 UTC = 07:13 ET (primary)
-#   11:43 UTC = 07:43 ET (30-min backup)
-#   12:13 UTC = 08:13 ET (last-chance)
+#   12:13 UTC = 07:13 ET (primary)
+#   12:43 UTC = 07:43 ET (30-min backup)
+#   13:13 UTC = 08:13 ET (last-chance)
 #
 # `vars.OUTGROW_PAUSED=true` keeps every trigger from running.
 
@@ -29,9 +30,9 @@ on:
   repository_dispatch:
     types: [daily-pulse]
   schedule:
-    - cron: "13 11 * * 1-5"
-    - cron: "43 11 * * 1-5"
     - cron: "13 12 * * 1-5"
+    - cron: "43 12 * * 1-5"
+    - cron: "13 13 * * 1-5"
 
 # Serialize ALL workflows that commit state/pulse_history.json back to main
 # (daily-dispatch + inbox-poll) under one shared concurrency group. They both

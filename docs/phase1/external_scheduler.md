@@ -50,10 +50,13 @@ rotating it, update the `Authorization` header in every job:
 2. **Create cronjob**:
    * **Title**: `Outgrow daily pulse`
    * **URL**: `https://api.github.com/repos/hfscdogg/outgrow/dispatches`
-   * **Schedule**: every weekday (Mon–Fri) at **11:13 UTC**
-     (= 07:13 ET during DST). cron-job.org lets you pick the timezone;
-     if you set it to UTC, use 11:13. At the November DST flip, change
-     to 12:13 UTC.
+   * **Schedule**: every weekday (Mon–Fri) at **07:13 America/New_York**.
+     cron-job.org lets you pick the job's timezone; set it to
+     `America/New_York` so the run follows DST on its own. If the job is
+     set to UTC instead, it must be moved twice a year: 11:13 UTC during
+     DST (Mar–Nov), 12:13 UTC during standard time (Nov–Mar). The
+     `schedule:` fallbacks in the workflows are UTC-only and always need
+     that manual bump.
    * **Request method**: `POST`
    * **Request headers**:
      * `Authorization: Bearer <the PAT from step 1>`
