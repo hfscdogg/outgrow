@@ -84,6 +84,9 @@ def test_off_profile_greeting_flagged(profile: JudgeProfile) -> None:
         "Let me know if you need anything from us at Livewire.",
         "Mr. Cawthorn:\n\nHope your system is still treating you well after your last install.",
         "Mary Ann:\nHope the system is still treating you well. Let me know if you need anything.",
+        "Matthew and Michelle:\n\nHope your system's still running well after your last purchase.",
+        "Mr. and Mrs. Smith:\n\nHope your system's still running well after your last purchase.",
+        "Bob & Sue:\n\nHope your system's still running well after your last purchase.",
     ],
 )
 def test_name_salutation_greeting_allowed(profile: JudgeProfile, draft: str) -> None:
@@ -95,6 +98,8 @@ def test_name_salutation_greeting_allowed(profile: JudgeProfile, draft: str) -> 
     "draft",
     [
         "Dear Mark:\n\nHope your system's still running well after your last purchase.",
+        "Dear Matthew and Michelle:\n\nHope your system is still running well.",
+        "Hello and Welcome:\n\nHope your system's still running well after your last visit.",
         "Greetings:\n\nHope your system's still running well after your last purchase.",
         "mark:\n\nHope your system's still running well after your last purchase.",
         "Mark: hope your system's still running well after your last purchase.",

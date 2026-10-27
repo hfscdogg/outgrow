@@ -24,10 +24,13 @@ DOLLAR_RE = re.compile(r"\$\s*\d[\d,]*(?:\.\d+)?")
 # learns it from the edit history. Without this, every one of those drafts
 # failed the greeting check and the owner's pulse silently stopped for weeks.
 # Capitalized name words only, so "Dear valued customer:" and other generic
-# openers still fall through to the allowed-greetings check.
-NAME_SALUTATION_RE = re.compile(
-    r"^(?:(?:Mr|Mrs|Ms|Mx|Dr|Miss)\.?\s+)?[A-Z][A-Za-z'\-]*(?:\s+[A-Z][A-Za-z'\-]*)?\s*:$"
-)
+# openers still fall through to the allowed-greetings check. Up to four
+# names joined by "and" / "&" / "," cover households ("Matthew and
+# Michelle:", "Mr. and Mrs. Smith:") — the Oct 27 pulse was rejected on one.
+_HONORIFIC = r"(?:Mr|Mrs|Ms|Mx|Dr|Miss)\.?"
+_NAME = rf"(?:{_HONORIFIC}\s+)?[A-Z][A-Za-z'\-]*(?:\s+[A-Z][A-Za-z'\-]*)?"
+_PART = rf"(?:{_NAME}|{_HONORIFIC})"
+NAME_SALUTATION_RE = re.compile(rf"^{_PART}(?:\s*(?:,|&|and)\s*{_PART}){{0,3}}\s*:$")
 SALUTATION_DENYLIST: frozenset[str] = frozenset({"dear", "greetings", "hello", "attention"})
 
 # Phrases that scream "GPT wrote this." Add to this list when new patterns
