@@ -125,14 +125,17 @@ def build_customers(
     match_result: MatchResult,
     zoho_user_to_rep_id: Mapping[str, str],
     recently_pulsed_ids: frozenset[str] = frozenset(),
+    deal_rep_by_contact: Mapping[str, str] | None = None,
 ) -> list[Customer]:
     """Project auto-matched pairs into ranked-engine ``Customer`` records.
 
-    Records are skipped when:
+    The rep is the one on the contact's most recent completed/won deal
+    when ``deal_rep_by_contact`` (``pipeline.attribution``) has an entry,
+    otherwise the contact's Zoho Owner. Records are skipped when:
     * the matched Zoho or QBO row isn't in its source list (data drift)
-    * the Zoho contact has no Owner field (unassigned in Zoho)
-    * the Zoho Owner isn't mapped to an internal rep (unknown rep, owner
-      triages by adding a ``zoho_user_id:`` to a rep YAML)
+    * neither a deal rep nor a mapped contact Owner is found (unassigned,
+      or owned by someone who isn't a rep — the owner triages by adding a
+      ``zoho_user_id:`` to a rep YAML)
 
     ``recently_pulsed_ids`` are customer IDs the engine has emailed in the
     last ``DEFAULT_WINDOW_DAYS`` (see ``pipeline/suppressions.py``). They
@@ -184,10 +187,10 @@ def build_customers(
         qbo = qbo_by_id.get(ms.qbo_id)
         if zoho is None or qbo is None:
             continue
-        owner_id = _zoho_owner_id(zoho)
-        if owner_id is None:
-            continue
-        rep_id = zoho_user_to_rep_id.get(owner_id)
+        rep_id = (deal_rep_by_contact or {}).get(ms.zoho_id)
+        if rep_id is None:
+            owner_id = _zoho_owner_id(zoho)
+            rep_id = zoho_user_to_rep_id.get(owner_id) if owner_id else None
         if rep_id is None:
             continue
 

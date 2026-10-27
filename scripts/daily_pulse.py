@@ -61,6 +61,7 @@ from pipeline.alerts import (
     save_alerts,
     unalerted,
 )
+from pipeline.attribution import latest_deal_rep_by_contact
 from pipeline.customers import build_briefing, build_customers
 from pipeline.reps import (
     LoadedRep,
@@ -338,6 +339,7 @@ def run_pipeline(
     recently_pulsed_ids: frozenset[str] = frozenset(),
     reps_already_pulsed_today: frozenset[str] = frozenset(),
     edit_examples_by_rep: Mapping[str, Sequence[tuple[str, str]]] | None = None,
+    zoho_deals: Sequence[dict] | None = None,
 ) -> list[PulseRunResult]:
     """End-to-end pipeline for every rep on ``today``.
 
@@ -354,6 +356,10 @@ def run_pipeline(
     ``edit_examples_by_rep`` maps rep_id -> recent (draft, rewrite) pairs
     from ``pipeline.suppressions.recent_edit_examples`` — the drafter
     shows them to the model so each rep's real edits steer future drafts.
+
+    ``zoho_deals``, when given, switches rep attribution from the Zoho
+    contact Owner to the rep on each customer's latest completed/won deal
+    (``pipeline.attribution``). ``None`` keeps contact-owner attribution.
     """
     import time  # noqa: PLC0415  -- only used for timing logs in this function
 
@@ -386,6 +392,15 @@ def run_pipeline(
         time.monotonic() - t0,
     )
 
+    deal_rep_by_contact = (
+        latest_deal_rep_by_contact(zoho_deals, user_to_rep) if zoho_deals is not None else None
+    )
+    if deal_rep_by_contact is not None:
+        logger.info(
+            "rep attribution: deal owner (%d contacts with a rep-owned completed deal)",
+            len(deal_rep_by_contact),
+        )
+
     t0 = time.monotonic()
     customers = build_customers(
         zoho_contacts=zoho_contacts,
@@ -394,6 +409,7 @@ def run_pipeline(
         match_result=match_result,
         zoho_user_to_rep_id=user_to_rep,
         recently_pulsed_ids=recently_pulsed_ids,
+        deal_rep_by_contact=deal_rep_by_contact,
     )
     logger.info(
         "built %d customer records after rep_id mapping (%.1fs); play=%s",
@@ -607,6 +623,13 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR
     zoho_contacts = _read_cache_json(args.zoho_cache_dir / "contacts.json")
     qbo_customers = _read_cache_json(args.qbo_cache_dir / "customers.json")
     qbo_invoices = _read_cache_json(args.qbo_cache_dir / "invoices.json")
+    # Repo variable OUTGROW_REP_ATTRIBUTION=deal turns on deal-owner
+    # attribution (pipeline/attribution.py); anything else keeps the
+    # contact Owner. Preview the effect first with
+    # scripts/rep_attribution_report.py.
+    zoho_deals: list[dict] | None = None
+    if (os.environ.get("OUTGROW_REP_ATTRIBUTION") or "").strip().lower() == "deal":
+        zoho_deals = _read_cache_json(args.zoho_cache_dir / "deals.json")
 
     import anthropic  # noqa: PLC0415  (heavy import, only needed in main)
 
@@ -671,6 +694,7 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover  # noqa: PLR
         recently_pulsed_ids=recently_pulsed,
         reps_already_pulsed_today=already_pulsed_today,
         edit_examples_by_rep=edit_examples_by_rep,
+        zoho_deals=zoho_deals,
     )
 
     # Only SENT pulses go into history — dry-run drafts never reached the

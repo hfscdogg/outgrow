@@ -145,6 +145,10 @@ jobs:
           OUTGROW_OWNER_EMAIL: ${{ vars.OUTGROW_OWNER_EMAIL }}
           OUTGROW_CONTROL_ADDRESS: ${{ vars.OUTGROW_CONTROL_ADDRESS }}
           OUTGROW_SENDER_EMAIL: ${{ vars.OUTGROW_SENDER_EMAIL }}
+          # "deal" attributes customers to the rep on their latest completed
+          # deal instead of the Zoho contact Owner (pipeline/attribution.py).
+          # Preview with the rep-attribution-report workflow before setting.
+          OUTGROW_REP_ATTRIBUTION: ${{ vars.OUTGROW_REP_ATTRIBUTION }}
           # SMTP creds — only consumed when OUTGROW_WRITE_MODE=true selects --write.
           # Google Workspace defaults: smtp.gmail.com:587 with STARTTLS. Override
           # OUTGROW_SMTP_HOST/_PORT for a different provider. OUTGROW_SMTP_USER
