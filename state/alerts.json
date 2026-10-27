@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "alerts": [
+    {
+      "date": "2026-10-27",
+      "rep_id": "henry",
+      "kind": "judge_rejected"
+    }
+  ]
+}
