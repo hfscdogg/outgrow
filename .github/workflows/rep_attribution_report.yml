@@ -18,6 +18,7 @@ concurrency:
 
 jobs:
   report:
+    name: Rep attribution preview (read-only)
     runs-on: ubuntu-latest
     permissions:
       contents: read
