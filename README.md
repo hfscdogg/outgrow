@@ -45,6 +45,14 @@ scripts/              # CI guard scripts
 tests/                # 20+ tests, sockets blocked at import time
 ```
 
+## Rep attribution
+
+By default a customer belongs to the rep who owns their Zoho contact. Set the
+repo variable `OUTGROW_REP_ATTRIBUTION=deal` to attribute each customer to the
+rep on their most recent completed/won deal instead (contact owner as the
+fallback) — see `pipeline/attribution.py`. Preview the effect first by running
+the **rep-attribution-report** workflow from the Actions tab.
+
 ## Hard rules
 
 - No live API calls anywhere in this scaffold. Every integration boundary
