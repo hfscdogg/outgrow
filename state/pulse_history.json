@@ -2,25 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000000066060",
-      "rep_id": "henry",
-      "pulse_id": "2026-07-29-henry",
-      "date": "2026-07-29",
-      "action": "sent",
-      "action_at": "2026-07-29",
-      "draft_text": "Hey James! Just thought I'd check in. Hope the system's treating you well. Happy to help if you ever need anything \u2014 let me know!"
-    },
-    {
-      "customer_id": "176704000197400111",
-      "rep_id": "zack",
-      "pulse_id": "2026-07-29-zack",
-      "date": "2026-07-29",
-      "action": "skipped",
-      "action_at": "2026-07-31",
-      "skip_reason": "dillon actively in talks with Judith and Scott",
-      "draft_text": "Hey Judith! Just thought I'd check in. Hope the system's still treating you well. Let me know if you need anything!"
-    },
-    {
       "customer_id": "176704000331002006",
       "rep_id": "henry",
       "pulse_id": "2026-07-30-henry",
@@ -1051,6 +1032,27 @@
       "pulse_id": "2026-10-27-zack",
       "date": "2026-10-27",
       "draft_text": "Hey Jill, hope all is well. How's the system been treating you since your last install? Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000274863074",
+      "rep_id": "henry",
+      "pulse_id": "2026-10-28-henry",
+      "date": "2026-10-28",
+      "draft_text": "Mr. Costanzo:\n\nHope your system is still treating you well after your last install. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000229441012",
+      "rep_id": "marshall",
+      "pulse_id": "2026-10-28-marshall",
+      "date": "2026-10-28",
+      "draft_text": "Hey Rita, hope the system's been treating you well since we wrapped up in September. Happy to help if anything comes up \u2014 let me know!"
+    },
+    {
+      "customer_id": "176704000027913027",
+      "rep_id": "zack",
+      "pulse_id": "2026-10-28-zack",
+      "date": "2026-10-28",
+      "draft_text": "Hey William, hope all is well. How's the system holding up since your last visit with us? Let me know if you need anything."
     }
   ]
 }
