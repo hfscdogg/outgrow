@@ -9,6 +9,13 @@ own recap email.
 Mirrors ``scripts/daily_pulse.py``'s structure: env-validation guard
 chain, ``--dry-run`` by default, ``--write`` for real SMTP, sockets
 blocked at conftest in tests.
+
+Once-per-week guard: in write mode each successful send is recorded in
+``state/digest_sent.json`` (rep_id -> Monday of the reported week), which
+the workflow commits back to main. A second trigger for the same week
+(cron-job.org "run now", a ``schedule`` fallback, a manual dispatch) skips
+reps already recorded instead of re-sending them last week's recap.
+``--force`` bypasses the guard for an intentional resend.
 """
 
 from __future__ import annotations
@@ -26,16 +33,53 @@ from pipeline.reps import load_reps
 from pipeline.suppressions import load_history
 from pulse.mailer import SmtpSender, make_smtp_sender
 from reports.render import render_html, render_plain, render_subject
-from reports.weekly_digest import WeeklyDigest, build_digest
+from reports.weekly_digest import WeeklyDigest, build_digest, last_completed_workweek
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_ZOHO_CACHE_DIR = REPO_ROOT / ".cache" / "zoho"
+DEFAULT_SENT_LEDGER_PATH = REPO_ROOT / "state" / "digest_sent.json"
 
 logger = logging.getLogger("outgrow.weekly_digest")
 
 
 def _read_cache_json(path: Path) -> list[dict]:  # pragma: no cover
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_sent_ledger(path: Path = DEFAULT_SENT_LEDGER_PATH) -> dict[str, str]:
+    """Return ``{rep_id: ISO date of the Monday of the last week sent}``.
+
+    A missing file means nothing has been recorded yet.
+    """
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} must hold a JSON object of rep_id -> week start")
+    return {str(k): str(v) for k, v in data.items()}
+
+
+def already_sent(ledger: dict[str, str], rep_id: str, week_start: date) -> bool:
+    """True if ``rep_id``'s digest for the week starting ``week_start`` went out."""
+    return ledger.get(rep_id) == week_start.isoformat()
+
+
+def record_sent(
+    ledger: dict[str, str],
+    rep_id: str,
+    week_start: date,
+    path: Path = DEFAULT_SENT_LEDGER_PATH,
+) -> None:
+    """Mark ``rep_id`` as sent for ``week_start`` and write the ledger to disk.
+
+    Written after every individual send (not once at the end) so a run that
+    dies partway through still protects the reps it already emailed.
+    """
+    ledger[rep_id] = week_start.isoformat()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(ledger, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def _build_email(
@@ -87,6 +131,12 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
         help="Actually send. Requires SMTP env vars (same as the daily pulse).",
     )
     parser.add_argument("--zoho-cache-dir", type=Path, default=DEFAULT_ZOHO_CACHE_DIR)
+    parser.add_argument("--sent-ledger", type=Path, default=DEFAULT_SENT_LEDGER_PATH)
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Send even to reps whose digest for this week is already recorded as sent.",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -109,6 +159,8 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
     zoho_contacts = _read_cache_json(args.zoho_cache_dir / "contacts.json")
     history = load_history()
     today = date.today()
+    week_start, _ = last_completed_workweek(today)
+    ledger = load_sent_ledger(args.sent_ledger)
 
     smtp_sender: SmtpSender
     if args.dry_run:
@@ -120,6 +172,13 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
 
     sent = 0
     for rep in reps:
+        if not args.force and already_sent(ledger, rep.profile.rep_id, week_start):
+            logger.info(
+                "rep=%s skipping email (digest for week of %s already sent)",
+                rep.profile.rep_id,
+                week_start.isoformat(),
+            )
+            continue
         digest = build_digest(
             entries=history,
             zoho_contacts=zoho_contacts,
@@ -143,6 +202,8 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
         )
         smtp_sender(msg)
         sent += 1
+        if not args.dry_run:
+            record_sent(ledger, rep.profile.rep_id, week_start, args.sent_ledger)
 
     logger.info("weekly_digest sent=%d total reps=%d", sent, len(reps))
     return 0

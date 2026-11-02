@@ -692,3 +692,21 @@ def test_update_github_secret_does_get_then_put(monkeypatch) -> None:
     assert "actions/secrets/public-key" in seen[0][1]
     assert seen[1][0] == "PUT"
     assert "actions/secrets/QBO_SANDBOX_REFRESH_TOKEN" in seen[1][1]
+
+
+def test_persist_emits_gha_notice_annotation_on_success(monkeypatch, capsys) -> None:
+    """A successful write-back surfaces as a ::notice in the run summary, so a
+    PAT rotation can be confirmed without digging through the step log."""
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(qbo, "update_github_actions_secret", lambda **_kw: None)
+    qbo.maybe_persist_refresh_token(
+        new_token="RT-new",
+        old_token="RT-old",
+        secret_name="QBO_SANDBOX_REFRESH_TOKEN",
+        repo="o/r",
+        pat="ghp_xxx",
+    )
+    captured = capsys.readouterr()
+    assert "::notice title=QBO token rotated::" in captured.out
+    assert "QBO_SANDBOX_REFRESH_TOKEN" in captured.out
+    assert "RT-new" not in captured.out

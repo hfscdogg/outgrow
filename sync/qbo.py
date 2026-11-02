@@ -518,9 +518,9 @@ def maybe_persist_refresh_token(
         logging.getLogger(__name__).error(msg)
         _emit_gha_annotation("error", "QBO token rotation failed", msg)
         return False
-    logging.getLogger(__name__).info(
-        "Persisted rotated QBO refresh token to GitHub Actions secret %s.", secret_name
-    )
+    msg = f"Persisted rotated QBO refresh token to GitHub Actions secret {secret_name}."
+    logging.getLogger(__name__).info(msg)
+    _emit_gha_annotation("notice", "QBO token rotated", msg)
     return True
 
 
@@ -528,6 +528,10 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover
     parser = argparse.ArgumentParser(description="Nightly QBO read-only sync (sandbox or prod)")
     parser.add_argument("--cache-dir", type=Path, default=CACHE_DIR)
     args = parser.parse_args(argv)
+
+    # Without this the root logger sits at WARNING and the "Persisted rotated
+    # QBO refresh token" success line never reaches the Actions log.
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     creds = QboCreds.from_env()
     token, new_refresh = refresh_access_token(creds)

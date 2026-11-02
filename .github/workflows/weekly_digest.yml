@@ -36,8 +36,18 @@ jobs:
     if: ${{ vars.OUTGROW_PAUSED != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # ``contents: write`` so the last step can push state/digest_sent.json
+    # (the once-per-week send guard) back to main. Default GITHUB_TOKEN.
+    permissions:
+      contents: write
     steps:
+      # ``ref: main`` so a run queued behind another digest run (same
+      # concurrency group) sees the ledger that run just pushed, instead
+      # of the triggering SHA's stale copy — otherwise the guard can't
+      # stop the second run from re-sending.
       - uses: actions/checkout@v5
+        with:
+          ref: main
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -77,3 +87,31 @@ jobs:
           else
             uv run python -m scripts.weekly_digest --dry-run
           fi
+
+      # Persist the once-per-week guard so a second trigger this week (a
+      # cron-job.org "run now", the schedule fallback, a manual dispatch)
+      # skips reps already emailed. Only this workflow writes the file and
+      # its runs are serialized by the weekly-digest concurrency group, so
+      # a rejected push can only be another workflow's commit to a
+      # different file (pulse/inbox state) — a plain rebase resolves it.
+      - name: Commit digest send ledger
+        if: always()
+        run: |
+          if [ -z "$(git status --porcelain state/digest_sent.json)" ]; then
+            echo "no digest ledger changes; skipping commit"
+            exit 0
+          fi
+          git config user.name "outgrow-bot"
+          git config user.email "outgrow-bot@users.noreply.github.com"
+          git add state/digest_sent.json
+          git commit -m "chore(digest): record sent digests $(date -u +%Y-%m-%d)"
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD:main; then
+              echo "pushed digest ledger on attempt $attempt"
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt); rebasing onto latest main"
+            git pull --rebase origin main
+          done
+          echo "::error::failed to push digest ledger after 5 attempts — a re-trigger this week could re-send digests"
+          exit 1
