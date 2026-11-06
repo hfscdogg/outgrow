@@ -1088,6 +1088,9 @@
       "rep_id": "zack",
       "pulse_id": "2026-11-05-zack",
       "date": "2026-11-05",
+      "action": "skipped",
+      "action_at": "2026-11-05",
+      "skip_reason": "Skipping because I'm in talks with Curtis re: a service issue and a control\r\n4 overhaul",
       "draft_text": "Hey Curtis, hope all is well. Hope the system is still treating you well. Let me know if you need anything."
     }
   ]
