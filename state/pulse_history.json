@@ -2,22 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000305772021",
-      "rep_id": "henry",
-      "pulse_id": "2026-08-07-henry",
-      "date": "2026-08-07",
-      "action": "sent",
-      "action_at": "2026-08-07",
-      "draft_text": "Hey Suzanne! Just thinking about you. Hope the system is still treating you well. Happy to help if you ever need anything \u2014 just let me know."
-    },
-    {
-      "customer_id": "176704000272492133",
-      "rep_id": "zack",
-      "pulse_id": "2026-08-07-zack",
-      "date": "2026-08-07",
-      "draft_text": "Hey Gaye! Just thinking about you. Hope the system is still treating you well. Happy to help if anything comes up \u2014 let me know!"
-    },
-    {
       "customer_id": "176704000308938001",
       "rep_id": "henry",
       "pulse_id": "2026-08-10-henry",
@@ -1092,6 +1076,27 @@
       "action_at": "2026-11-05",
       "skip_reason": "Skipping because I'm in talks with Curtis re: a service issue and a control\r\n4 overhaul",
       "draft_text": "Hey Curtis, hope all is well. Hope the system is still treating you well. Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000251903001",
+      "rep_id": "henry",
+      "pulse_id": "2026-11-06-henry",
+      "date": "2026-11-06",
+      "draft_text": "Darren:\n\nHope your system is still treating you well after your last visit. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000296589023",
+      "rep_id": "marshall",
+      "pulse_id": "2026-11-06-marshall",
+      "date": "2026-11-06",
+      "draft_text": "Hey Ravi, hope the system's been treating you well since December. Happy to help if anything comes up \u2014 let me know!"
+    },
+    {
+      "customer_id": "176704000092543334",
+      "rep_id": "zack",
+      "pulse_id": "2026-11-06-zack",
+      "date": "2026-11-06",
+      "draft_text": "Hey William, hope all is well. How has the system been treating you since your last install? Let me know if you need anything."
     }
   ]
 }
