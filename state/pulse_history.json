@@ -2,23 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000308938001",
-      "rep_id": "henry",
-      "pulse_id": "2026-08-10-henry",
-      "date": "2026-08-10",
-      "action": "edited",
-      "action_at": "2026-08-10",
-      "edited_text": "Hey Maxwell! Hope your system is still working well. Let me know if you\r\nneed anything from us at Livewire.\r\n\r\n- Henry\r\n\r\n\r\n\r\nHENRY CLIFFORD | CEO\r\nOffice: 804-937-9001\r\nEmail: henry@getlivewire.com\r\n\r\nNEED SERVICE? BOOK ONLINE HERE! <https://www.getlivewire.com/bookings/>\r\nBOOK AN APPOINTMENT <https://calendar.app.google/ARAq8nqA3CNvQPhJ6> *WITH\r\nME*\r\n",
-      "draft_text": "Hey Maxwell! Just thinking about you. Hope the system is still killing it. Let me know if you need anything from us at Livewire."
-    },
-    {
-      "customer_id": "176704000198995001",
-      "rep_id": "zack",
-      "pulse_id": "2026-08-10-zack",
-      "date": "2026-08-10",
-      "draft_text": "Hey Gary! Just thinking about you. Hope the system is still treating you well. Let me know if you need anything."
-    },
-    {
       "customer_id": "176704000260995012",
       "rep_id": "henry",
       "pulse_id": "2026-08-11-henry",
@@ -1102,6 +1085,27 @@
       "pulse_id": "2026-11-06-zack",
       "date": "2026-11-06",
       "draft_text": "Hey William, hope all is well. How has the system been treating you since your last install? Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000337948015",
+      "rep_id": "henry",
+      "pulse_id": "2026-11-09-henry",
+      "date": "2026-11-09",
+      "draft_text": "Hey Mark,\n\nHope your system is still treating you well after your last install. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000272492133",
+      "rep_id": "marshall",
+      "pulse_id": "2026-11-09-marshall",
+      "date": "2026-11-09",
+      "draft_text": "Hey Gaye, hope the system's still treating you well since your last install. Happy to help if anything ever needs a tune-up or you want to add on. Let me know!"
+    },
+    {
+      "customer_id": "176704000207031180",
+      "rep_id": "zack",
+      "pulse_id": "2026-11-09-zack",
+      "date": "2026-11-09",
+      "draft_text": "Hey Jason, hope all is well. Just wanted to check in and see how your system is holding up. Let me know if you need anything."
     }
   ]
 }
