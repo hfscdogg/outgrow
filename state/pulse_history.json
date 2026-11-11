@@ -2,25 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000092558680",
-      "rep_id": "henry",
-      "pulse_id": "2026-08-12-henry",
-      "date": "2026-08-12",
-      "action": "sent",
-      "action_at": "2026-08-12",
-      "draft_text": "Hey Kathryn! Hope your system's still treating you well. Let me know if you need anything."
-    },
-    {
-      "customer_id": "176704000271575060",
-      "rep_id": "zack",
-      "pulse_id": "2026-08-12-zack",
-      "date": "2026-08-12",
-      "action": "skipped",
-      "action_at": "2026-08-12",
-      "skip_reason": "We have an active project with this client, will be completed this month",
-      "draft_text": "Hey Rachel and Jeremy, this is [name] with Livewire. We were reviewing some of our past projects and yours came up. Just wanted to check in and see how the system is holding up. Let me know if you need anything."
-    },
-    {
       "customer_id": "176704000254433018",
       "rep_id": "henry",
       "pulse_id": "2026-08-13-henry",
@@ -1116,6 +1097,27 @@
       "action_at": "2026-11-10",
       "skip_reason": "I will see him in person on Thursday.",
       "draft_text": "Hey Paul, hope all is well. How has the system been treating you since your last install? Let me know if you need anything."
+    },
+    {
+      "customer_id": "176704000092558680",
+      "rep_id": "henry",
+      "pulse_id": "2026-11-11-henry",
+      "date": "2026-11-11",
+      "draft_text": "Kathryn:\n\nHope your system is still treating you well after your last visit. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000125092001",
+      "rep_id": "marshall",
+      "pulse_id": "2026-11-11-marshall",
+      "date": "2026-11-11",
+      "draft_text": "Hey Sumayra \u2014 hope the system's still running smooth since we wrapped up in April. Happy to swing by if anything needs a look. Let me know!"
+    },
+    {
+      "customer_id": "176704000021918009",
+      "rep_id": "zack",
+      "pulse_id": "2026-11-11-zack",
+      "date": "2026-11-11",
+      "draft_text": "Hey Kirby, been a minute since your last install with us. How's the system holding up? Let me know if you need anything."
     }
   ]
 }
