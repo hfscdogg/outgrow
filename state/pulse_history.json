@@ -745,6 +745,8 @@
       "rep_id": "marshall",
       "pulse_id": "2026-10-21-marshall",
       "date": "2026-10-21",
+      "action": "sent",
+      "action_at": "2026-11-16",
       "draft_text": "Hey Jane, just wanted to check in on your system from the Sep install \u2014 hope everything's been running smooth. Let me know if you need anything!"
     },
     {
@@ -851,6 +853,8 @@
       "rep_id": "marshall",
       "pulse_id": "2026-10-29-marshall",
       "date": "2026-10-29",
+      "action": "sent",
+      "action_at": "2026-11-16",
       "draft_text": "Hey John, hope the system is treating you well \u2014 let me know if anything comes up or you need anything from us"
     },
     {
@@ -876,6 +880,8 @@
       "rep_id": "marshall",
       "pulse_id": "2026-10-30-marshall",
       "date": "2026-10-30",
+      "action": "sent",
+      "action_at": "2026-11-16",
       "draft_text": "Hey Tamika! Your system still treating you well after the July install? Happy to help if anything comes up \u2014 let me know!"
     },
     {
@@ -948,6 +954,8 @@
       "rep_id": "marshall",
       "pulse_id": "2026-11-04-marshall",
       "date": "2026-11-04",
+      "action": "sent",
+      "action_at": "2026-11-16",
       "draft_text": "Hey Ronnie, hope that system we set up is still treating you well. Happy to answer any questions or help with anything new \u2014 let me know!"
     },
     {
@@ -969,6 +977,8 @@
       "rep_id": "marshall",
       "pulse_id": "2026-11-05-marshall",
       "date": "2026-11-05",
+      "action": "sent",
+      "action_at": "2026-11-16",
       "draft_text": "Hey Sherman, hope the system from December is treating you well. Happy to answer any questions or take a look if anything comes up. Let me know!"
     },
     {
@@ -996,6 +1006,8 @@
       "rep_id": "marshall",
       "pulse_id": "2026-11-06-marshall",
       "date": "2026-11-06",
+      "action": "sent",
+      "action_at": "2026-11-16",
       "draft_text": "Hey Ravi, hope the system's been treating you well since December. Happy to help if anything comes up \u2014 let me know!"
     },
     {
@@ -1070,6 +1082,8 @@
       "rep_id": "marshall",
       "pulse_id": "2026-11-11-marshall",
       "date": "2026-11-11",
+      "action": "sent",
+      "action_at": "2026-11-16",
       "draft_text": "Hey Sumayra \u2014 hope the system's still running smooth since we wrapped up in April. Happy to swing by if anything needs a look. Let me know!"
     },
     {
@@ -1144,6 +1158,9 @@
       "rep_id": "marshall",
       "pulse_id": "2026-11-16-marshall",
       "date": "2026-11-16",
+      "action": "edited",
+      "action_at": "2026-11-16",
+      "edited_text": "Edit below to match what you actually sent the customer, then send.\r\n(This goes to the control mailbox to record your action \u2014 NOT to the\r\ncustomer.)\r\n\r\nHey Drew, hope the system is still running smooth since your last install.\r\nHappy to help if anything comes up \u2014 let me know!",
       "draft_text": "Hey Drew, hope the system is still running smooth since your last install. Happy to help if anything comes up \u2014 let me know!"
     },
     {
@@ -1151,6 +1168,9 @@
       "rep_id": "zack",
       "pulse_id": "2026-11-16-zack",
       "date": "2026-11-16",
+      "action": "skipped",
+      "action_at": "2026-11-16",
+      "skip_reason": "We were just out for service and I was in contact with Loc's counterpart.",
       "draft_text": "Hey Loc, your system still running smooth since your last install with Livewire? Let me know if you need anything."
     }
   ]
