@@ -2,25 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "customer_id": "176704000275450034",
-      "rep_id": "henry",
-      "pulse_id": "2026-08-24-henry",
-      "date": "2026-08-24",
-      "action": "sent",
-      "action_at": "2026-08-24",
-      "draft_text": "Hey Heather! Hope your system's still running well. Let me know if you need anything from us at Livewire."
-    },
-    {
-      "customer_id": "176704000280853054",
-      "rep_id": "zack",
-      "pulse_id": "2026-08-24-zack",
-      "date": "2026-08-24",
-      "action": "edited",
-      "action_at": "2026-08-24",
-      "edited_text": "Edit below to match what you actually sent the customer, then send.\r\n(This goes to the control mailbox to record your action \u2014 NOT to the\r\ncustomer.)",
-      "draft_text": "Hey Brian, hope all is well. Just wanted to check in and see how the system is holding up since your last install. Let me know if you need anything."
-    },
-    {
       "customer_id": "176704000261093118",
       "rep_id": "henry",
       "pulse_id": "2026-08-25-henry",
@@ -1234,6 +1215,27 @@
       "action": "skipped",
       "action_at": "2026-11-20",
       "draft_text": "Hey Jessica, this is [name] with Livewire. Wanted to check in and make sure your system is still running smooth since your last purchase with us. Let me know if you need anything!"
+    },
+    {
+      "customer_id": "176704000279673061",
+      "rep_id": "henry",
+      "pulse_id": "2026-11-23-henry",
+      "date": "2026-11-23",
+      "draft_text": "Hey Heather!\n\nHope your system's still running well after our last visit. Let me know if you need anything from us at Livewire."
+    },
+    {
+      "customer_id": "176704000190052004",
+      "rep_id": "marshall",
+      "pulse_id": "2026-11-23-marshall",
+      "date": "2026-11-23",
+      "draft_text": "Hey Rod, hope the system's still treating you well since we wrapped up last summer. Happy to answer any questions or help with anything new \u2014 let me know"
+    },
+    {
+      "customer_id": "176704000280853054",
+      "rep_id": "zack",
+      "pulse_id": "2026-11-23-zack",
+      "date": "2026-11-23",
+      "draft_text": "Hey Brian, this is [name] with Livewire. Just wanted to check in and make sure your system is still running smooth since your last purchase. Let me know if you need anything!"
     }
   ]
 }
