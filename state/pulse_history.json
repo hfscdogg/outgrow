@@ -1202,6 +1202,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-11-23-henry",
       "date": "2026-11-23",
+      "action": "sent",
+      "action_at": "2026-11-23",
       "draft_text": "Hey Heather!\n\nHope your system's still running well after our last visit. Let me know if you need anything from us at Livewire."
     },
     {
@@ -1216,6 +1218,9 @@
       "rep_id": "zack",
       "pulse_id": "2026-11-23-zack",
       "date": "2026-11-23",
+      "action": "skipped",
+      "action_at": "2026-11-23",
+      "skip_reason": "Skipping because I just spoke to Brian. All is well with Clark.",
       "draft_text": "Hey Brian, this is [name] with Livewire. Just wanted to check in and make sure your system is still running smooth since your last purchase. Let me know if you need anything!"
     },
     {
@@ -1223,6 +1228,8 @@
       "rep_id": "henry",
       "pulse_id": "2026-11-24-henry",
       "date": "2026-11-24",
+      "action": "sent",
+      "action_at": "2026-11-23",
       "draft_text": "Hey Kieran!\n\nHope your system's still running well after your last visit. Let me know if you need anything from us at Livewire."
     },
     {
